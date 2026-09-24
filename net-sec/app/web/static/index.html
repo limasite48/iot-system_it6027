@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Insecure Device Detection & Management Platform - IT6027</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .pulse-scan { animation: pulseGlow 2s infinite; }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-40 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xl font-bold">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            IoT Security & Governance Auditor
+            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IT6027</span>
+          </h1>
+          <p class="text-xs text-slate-400">Banner, mDNS, UPnP Fingerprinting &bull; CVE Matching &bull; Default Password Auditing &bull; VLAN Scoping</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <span id="scanStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Idle
+        </span>
+        <a href="/api/report" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-file-lines text-slate-400"></i> Governance Report
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- Scan Trigger Action Bar -->
+    <div class="glass rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+          <i class="fa-solid fa-network-wired text-emerald-400"></i> Target Scope:
+        </div>
+        <input type="text" id="targetCidr" value="192.168.137.0/24" 
+               class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 w-52"
+               placeholder="e.g. 192.168.137.0/24" />
+        <span class="text-xs text-slate-400 hidden sm:inline">(Mobile Hotspot Edge Subnet)</span>
+      </div>
+      <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+        <button id="btnScan" onclick="triggerAuditScan()" class="w-full md:w-auto px-5 py-2 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-radar" id="scanIcon"></i>
+          <span id="btnScanText">Start Network Audit</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 KPI Metrics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Devices -->
+      <div class="glass rounded-xl p-4">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+          <span>Total Discovered</span>
+          <i class="fa-solid fa-microchip text-slate-500 text-base"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="statTotal" class="text-3xl font-extrabold text-white">0</span>
+          <span class="text-xs text-slate-400">IoT Nodes</span>
+        </div>
+        <div id="statDeviceBreakdown" class="mt-2 text-xs text-slate-400 truncate">No devices detected yet</div>
+      </div>
+
+      <!-- Vulnerable Devices -->
+      <div class="glass rounded-xl p-4 border-l-4 border-rose-500">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+          <span>Insecure Devices</span>
+          <i class="fa-solid fa-triangle-exclamation text-rose-500 text-base"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="statVulnerable" class="text-3xl font-extrabold text-rose-400">0</span>
+          <span class="text-xs text-slate-400">High / Critical Risk</span>
+        </div>
+        <div class="mt-2 text-xs text-rose-300/80">Matched against known CVE database</div>
+      </div>
+
+      <!-- Default Passwords -->
+      <div class="glass rounded-xl p-4 border-l-4 border-amber-500">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+          <span>Default Passwords</span>
+          <i class="fa-solid fa-key text-amber-500 text-base"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="statDefaultCreds" class="text-3xl font-extrabold text-amber-400">0</span>
+          <span class="text-xs text-slate-400">Violations Found</span>
+        </div>
+        <div class="mt-2 text-xs text-amber-300/80">Predefined dictionary audit match</div>
+      </div>
+
+      <!-- Quarantine Recommendation -->
+      <div class="glass rounded-xl p-4 border-l-4 border-purple-500">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+          <span>VLAN Quarantine</span>
+          <i class="fa-solid fa-diagram-project text-purple-400 text-base"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="statQuarantine" class="text-3xl font-extrabold text-purple-400">0</span>
+          <span class="text-xs text-slate-400">Nodes to Isolate</span>
+        </div>
+        <div class="mt-2 text-xs text-purple-300/80">Move to VLAN 99 Quarantine</div>
+      </div>
+    </div>
+
+    <!-- Real-time Network Traffic & Bandwidth Meter -->
+    <div class="glass rounded-xl p-4 border border-cyan-500/20 bg-gradient-to-r from-slate-900/90 to-cyan-950/20">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-lg">
+            <i class="fa-solid fa-chart-line"></i>
+          </div>
+          <div>
+            <div class="text-sm font-bold text-white flex items-center gap-2">
+              IoT Edge Network Traffic & Bandwidth
+              <span id="trafficIfaceBadge" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono">Adapter: Detecting...</span>
+            </div>
+            <p class="text-xs text-slate-400">Live throughput and cumulative packet counters across the Hotspot edge interface</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full md:w-auto">
+          <div class="bg-slate-950/60 rounded-lg px-3 py-2 border border-slate-800">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Download (Rx)</div>
+            <div id="trafficRxRate" class="text-sm font-extrabold text-cyan-400">0.0 KB/s</div>
+            <div id="trafficTotalRx" class="text-[10px] text-slate-500">Total: 0.0 MB</div>
+          </div>
+          <div class="bg-slate-950/60 rounded-lg px-3 py-2 border border-slate-800">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Upload (Tx)</div>
+            <div id="trafficTxRate" class="text-sm font-extrabold text-emerald-400">0.0 KB/s</div>
+            <div id="trafficTotalTx" class="text-[10px] text-slate-500">Total: 0.0 MB</div>
+          </div>
+          <div class="bg-slate-950/60 rounded-lg px-3 py-2 border border-slate-800">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Packet Rate</div>
+            <div id="trafficPackets" class="text-sm font-extrabold text-purple-400">0 pkt/s</div>
+            <div class="text-[10px] text-slate-500">Rx/Tx Combined</div>
+          </div>
+          <div class="bg-slate-950/60 rounded-lg px-3 py-2 border border-slate-800">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Presence Status</div>
+            <div id="trafficPresenceBadge" class="text-sm font-extrabold text-emerald-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Auto-Active
+            </div>
+            <div class="text-[10px] text-slate-500">Heartbeat: 4s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Navigation Tabs -->
+    <div class="border-b border-slate-800 flex space-x-6 text-sm font-semibold">
+      <button onclick="switchTab('inventory')" id="tabBtn-inventory" class="pb-3 border-b-2 border-emerald-500 text-emerald-400 flex items-center gap-2">
+        <i class="fa-solid fa-list-check"></i> Device Inventory & Fingerprints
+      </button>
+      <button onclick="switchTab('vlan')" id="tabBtn-vlan" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+        <i class="fa-solid fa-network-wired"></i> VLAN Scoping & Policy
+      </button>
+      <button onclick="switchTab('alerts')" id="tabBtn-alerts" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+        <i class="fa-solid fa-bell"></i> Real-time Alerts (<span id="alertCountBadge">0</span>)
+      </button>
+    </div>
+
+    <!-- Tab 1: Device Inventory -->
+    <div id="tab-inventory" class="space-y-4">
+      <div class="glass rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="bg-slate-900/90 text-xs uppercase font-semibold text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Device & Type</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Network Address</th>
+                <th class="px-4 py-3">Hardware Vendor</th>
+                <th class="px-4 py-3">Open Ports</th>
+                <th class="px-4 py-3">Traffic (Rx / Tx)</th>
+                <th class="px-4 py-3">Vulnerabilities (CVEs)</th>
+                <th class="px-4 py-3">Password Security</th>
+                <th class="px-4 py-3">Risk Level</th>
+                <th class="px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="deviceTableBody" class="divide-y divide-slate-800/60">
+              <tr>
+                <td colspan="10" class="text-center py-10 text-slate-500">
+                  <i class="fa-solid fa-satellite-dish text-3xl mb-2 block"></i>
+                  No devices in inventory yet. Auto-discovery is active.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: VLAN Scoping & Isolation -->
+    <div id="tab-vlan" class="hidden space-y-4">
+      <div class="glass rounded-xl p-5">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sitemap text-purple-400"></i> VLAN Scoping & Micro-Segmentation Policies
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">
+          In compliance with zero-trust network governance, insecure IoT devices must be segregated into a restricted Quarantine VLAN (VLAN 99) to prevent lateral attack propagation.
+        </p>
+      </div>
+      <div id="vlanContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Dynamically rendered VLAN cards -->
+      </div>
+    </div>
+
+    <!-- Tab 3: Real-Time Alerts -->
+    <div id="tab-alerts" class="hidden space-y-4">
+      <div id="alertsContainer" class="space-y-3">
+        <div class="glass rounded-xl p-8 text-center text-slate-500">
+          <i class="fa-solid fa-check-circle text-3xl mb-2 text-emerald-500/50 block"></i>
+          No active security alerts.
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Device Detail Modal -->
+  <div id="deviceModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 id="modalDeviceTitle" class="text-lg font-bold text-white">Device Details</h3>
+          <p id="modalDeviceSub" class="text-xs text-slate-400 font-mono"></p>
+        </div>
+        <button onclick="closeModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="modalContent" class="space-y-4 text-xs">
+        <!-- Dynamically populated -->
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 flex justify-end">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentDevices = [];
+
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const badge = document.getElementById('scanStatusBadge');
+        const btnScan = document.getElementById('btnScan');
+        const btnScanText = document.getElementById('btnScanText');
+        const icon = document.getElementById('scanIcon');
+
+        if (data.is_scanning) {
+          badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> Scanning Network...`;
+          btnScan.disabled = true;
+          btnScan.classList.add('opacity-50', 'cursor-not-allowed');
+          btnScanText.innerText = "Auditing in progress...";
+          icon.className = "fa-solid fa-spinner fa-spin";
+        } else {
+          badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Idle`;
+          btnScan.disabled = false;
+          btnScan.classList.remove('opacity-50', 'cursor-not-allowed');
+          btnScanText.innerText = "Start Network Audit";
+          icon.className = "fa-solid fa-radar";
+        }
+      } catch (e) {
+        console.error("Status load error", e);
+      }
+    }
+
+    async function loadData() {
+      try {
+        const [devRes, statRes, alertRes] = await Promise.all([
+          fetch('/api/devices'),
+          fetch('/api/stats'),
+          fetch('/api/alerts')
+        ]);
+        currentDevices = await devRes.json();
+        const stats = await statRes.json();
+        const alerts = await alertRes.json();
+
+        // Update stats
+        document.getElementById('statTotal').innerText = stats.total_devices || 0;
+        document.getElementById('statVulnerable').innerText = stats.vulnerable_devices || 0;
+        document.getElementById('statDefaultCreds').innerText = stats.default_passwords_found || 0;
+        document.getElementById('statQuarantine').innerText = stats.quarantine_recommended || 0;
+        document.getElementById('alertCountBadge').innerText = alerts.length;
+
+        // Breakdown text
+        if (stats.device_types) {
+          const typesText = Object.entries(stats.device_types).map(([k, v]) => `${k}: ${v}`).join(" | ");
+          document.getElementById('statDeviceBreakdown').innerText = typesText || "No devices detected";
+        }
+
+        try {
+          renderDeviceTable(currentDevices);
+        } catch (err) {
+          console.error("renderDeviceTable error", err);
+        }
+        try {
+          renderVlanCards(stats.vlan_groups);
+        } catch (err) {
+          console.error("renderVlanCards error", err);
+        }
+        try {
+          renderAlerts(alerts);
+        } catch (err) {
+          console.error("renderAlerts error", err);
+        }
+      } catch (e) {
+        console.error("Data load error", e);
+      }
+    }
+
+    function renderDeviceTable(devices) {
+      const tbody = document.getElementById('deviceTableBody');
+      if (!devices || devices.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-10 text-slate-500"><i class="fa-solid fa-satellite-dish text-3xl mb-2 block"></i>No devices in inventory yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = devices.map(d => {
+        let riskColor = "bg-slate-800 text-slate-300 border-slate-700";
+        if (d.risk_level === "CRITICAL") riskColor = "bg-rose-500/10 text-rose-400 border-rose-500/30";
+        else if (d.risk_level === "HIGH") riskColor = "bg-orange-500/10 text-orange-400 border-orange-500/30";
+        else if (d.risk_level === "MEDIUM") riskColor = "bg-amber-500/10 text-amber-400 border-amber-500/30";
+        else if (d.risk_level === "LOW") riskColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+
+        const typeIcons = {
+          "IP Camera": "fa-video",
+          "Smart Plug": "fa-plug",
+          "IoT Gateway / Router": "fa-router",
+          "IoT Sensor Node": "fa-temperature-half",
+          "Smartphone / Mobile Device": "fa-mobile-screen",
+          "Generic IoT Device": "fa-microchip"
+        };
+        const icon = typeIcons[d.device_type] || "fa-microchip";
+
+        const openPortsBadges = (d.open_ports || []).map(p => `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px] mr-1">${p}</span>`).join("") || "<span class='text-slate-500 text-xs'>None</span>";
+
+        const isOnline = d.is_online !== false;
+        const statusBadge = isOnline 
+          ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE</span>`
+          : `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> OFFLINE</span>`;
+
+        let credBadge = `<span class="text-emerald-500 text-xs font-semibold">Protected</span>`;
+        if (d.is_open_access) {
+          credBadge = `<span class="px-2 py-0.5 rounded bg-rose-600 text-white font-bold text-[10px] shadow-sm shadow-rose-900/40 animate-pulse flex items-center gap-1 w-fit"><i class="fa-solid fa-lock-open"></i> NO PASSWORD</span>`;
+        } else if (d.default_credentials_found) {
+          const credName = d.credential_findings?.[0]?.credential || 'admin:admin';
+          credBadge = `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold text-[10px] flex items-center gap-1 w-fit"><i class="fa-solid fa-key"></i> ${credName}</span>`;
+        }
+
+        const cveCount = (d.cves || []).length;
+        let cveBadge = `<span class="text-slate-500 text-xs font-semibold">0 Known CVEs</span>`;
+        if (cveCount > 0) {
+          const topCve = d.cves[0]?.cve_id || 'CVE Matched';
+          cveBadge = `<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1 w-fit"><i class="fa-solid fa-bug"></i> ${topCve} ${cveCount > 1 ? `(+${cveCount - 1})` : ''}</span>`;
+        }
+
+        let devTraffic = '<span class="text-slate-500 text-xs">--</span>';
+        if (isOnline && (d.device_type === "IP Camera" || d.open_ports?.includes(8080))) {
+          const rate = window.currentRxRate || 'Active Stream';
+          devTraffic = `
+            <div class="text-xs font-mono text-cyan-300 font-bold flex items-center gap-1"><i class="fa-solid fa-video text-[10px]"></i> ${rate}</div>
+            <div class="text-[10px] text-slate-500">${window.currentTotalRx || 'Rx Streaming'}</div>
+          `;
+        }
+
+        return `
+          <tr class="hover:bg-slate-900/60 transition ${!isOnline ? 'opacity-50' : ''}">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-300 text-sm">
+                  <i class="fa-solid ${icon}"></i>
+                </div>
+                <div>
+                  <div class="font-semibold text-white">${d.device_type}</div>
+                  <div class="text-[11px] text-slate-400">${d.model || 'Generic Model'}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3">
+              ${statusBadge}
+            </td>
+            <td class="px-4 py-3 font-mono text-xs">
+              <div class="text-slate-200 font-semibold">${d.ip}</div>
+              <div class="text-slate-500 text-[10px]">${d.mac}</div>
+            </td>
+            <td class="px-4 py-3 text-slate-300 text-xs">
+              ${d.vendor}
+            </td>
+            <td class="px-4 py-3">
+              ${openPortsBadges}
+            </td>
+            <td class="px-4 py-3">
+              ${devTraffic}
+            </td>
+            <td class="px-4 py-3">
+              ${cveBadge}
+            </td>
+            <td class="px-4 py-3">
+              ${credBadge}
+            </td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded text-xs font-bold border ${riskColor}">${d.risk_level}</span>
+            </td>
+            <td class="px-4 py-3 text-right">
+              <button onclick="viewDeviceDetails('${d.ip}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition">
+                Inspect
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderVlanCards(vlanGroups) {
+      const container = document.getElementById('vlanContainer');
+      if (!vlanGroups || Object.keys(vlanGroups).length === 0) {
+        container.innerHTML = `<div class="col-span-3 text-center py-8 text-slate-500">No VLAN scoping data available. Run an audit scan.</div>`;
+        return;
+      }
+
+      container.innerHTML = Object.values(vlanGroups).map(vg => {
+        const isQuarantine = vg.vlan_name.includes("Quarantine");
+        const cardBorder = isQuarantine ? "border-purple-500/40 bg-purple-950/10" : "border-slate-800";
+        return `
+          <div class="glass rounded-xl p-4 border ${cardBorder} space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="font-bold text-sm text-white">${vg.vlan_name}</div>
+              <span class="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 font-mono">ID: ${vg.vlan_id}</span>
+            </div>
+            <div class="flex gap-4 text-xs">
+              <div><span class="text-slate-400">Total:</span> <span class="font-bold text-white">${vg.device_count}</span></div>
+              <div><span class="text-slate-400">Critical:</span> <span class="font-bold text-rose-400">${vg.critical_count}</span></div>
+              <div><span class="text-slate-400">Quarantine Required:</span> <span class="font-bold text-purple-400">${vg.quarantine_count}</span></div>
+            </div>
+            <div class="pt-2 border-t border-slate-800 space-y-1">
+              ${vg.devices.map(d => `
+                <div class="flex items-center justify-between text-xs py-1 px-2 rounded bg-slate-900/60 font-mono">
+                  <span>${d.ip} (${d.device_type})</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded ${d.risk_level === 'CRITICAL' ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-400'}">${d.risk_level}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderAlerts(alerts) {
+      const container = document.getElementById('alertsContainer');
+      if (!alerts || alerts.length === 0) {
+        container.innerHTML = `
+          <div class="glass rounded-xl p-8 text-center text-slate-500">
+            <i class="fa-solid fa-check-circle text-3xl mb-2 text-emerald-500/50 block"></i>
+            No active security alerts.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = alerts.map(a => {
+        const isCrit = a.severity === "CRITICAL";
+        const isWarn = a.severity === "WARNING";
+        const isInfo = a.severity === "INFO";
+
+        let borderBg = "border-amber-500 bg-amber-950/10";
+        let iconClass = "fa-circle-exclamation text-amber-400";
+        if (isCrit) {
+          borderBg = "border-rose-500 bg-rose-950/10";
+          iconClass = "fa-triangle-exclamation text-rose-400";
+        } else if (isInfo) {
+          borderBg = "border-cyan-500 bg-cyan-950/10";
+          iconClass = "fa-circle-info text-cyan-400";
+        }
+
+        const timeStr = a.timestamp ? (a.timestamp.includes('T') ? a.timestamp.split('T')[1].split('.')[0] : a.timestamp) : '';
+
+        return `
+          <div class="glass rounded-xl p-4 border-l-4 ${borderBg} flex items-start gap-3">
+            <div class="text-xl mt-0.5">
+              <i class="fa-solid ${iconClass}"></i>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <div class="font-bold text-sm text-white">${a.title}</div>
+                <span class="text-[10px] text-slate-500 font-mono">${timeStr}</span>
+              </div>
+              <div class="text-xs text-slate-300 mt-1">${a.details}</div>
+              <div class="mt-2 flex items-center gap-2 font-mono text-[11px] text-slate-400">
+                <span>Target: <b>${a.device_ip}</b></span>
+                <span>&bull;</span>
+                <span>Type: <b>${a.device_type}</b></span>
+                <span>&bull;</span>
+                <span class="font-bold text-[10px] px-1.5 py-0.2 rounded ${isCrit ? 'bg-rose-500/20 text-rose-300' : isInfo ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300'}">${a.severity}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function viewDeviceDetails(ip) {
+      const device = currentDevices.find(d => d.ip === ip);
+      if (!device) return;
+
+      document.getElementById('modalDeviceTitle').innerText = `${device.device_type} (${device.ip})`;
+      document.getElementById('modalDeviceSub').innerText = `MAC: ${device.mac} | Vendor: ${device.vendor} | VLAN: ${device.vlan?.name || 'N/A'}`;
+
+      let content = `
+        <div class="glass rounded-lg p-3 space-y-2">
+          <div class="font-bold text-slate-300 uppercase tracking-wider text-[10px]">Policy & Isolation Status</div>
+          <div class="text-xs ${device.scoping_policy?.quarantine_required ? 'text-rose-400' : 'text-emerald-400'} font-semibold">
+            ${device.scoping_policy?.policy_message || 'N/A'}
+          </div>
+          <div class="text-slate-400 text-[11px]">Recommended Scope: <b>${device.scoping_policy?.recommended_vlan}</b></div>
+          <div class="text-slate-400 text-[11px]">Remediation: ${device.scoping_policy?.remediation}</div>
+        </div>
+      `;
+
+      if (device.credential_findings && device.credential_findings.length > 0) {
+        content += `
+          <div class="glass rounded-lg p-3 space-y-2 border border-rose-500/30 bg-rose-950/20">
+            <div class="font-bold text-rose-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+              <i class="fa-solid fa-key"></i> Default Password Findings
+            </div>
+            ${device.credential_findings.map(f => `
+              <div class="text-xs text-rose-200">
+                Port <b>${f.port}</b> accepted default credential: <code class="bg-rose-950 px-1 py-0.5 rounded border border-rose-700/50">${f.credential}</code> (${f.service})
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      if (device.cves && device.cves.length > 0) {
+        content += `
+          <div class="glass rounded-lg p-3 space-y-2">
+            <div class="font-bold text-slate-300 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+              <i class="fa-solid fa-shield-virus text-rose-400"></i> Matched Known CVEs
+            </div>
+            <div class="space-y-2">
+              ${device.cves.map(c => `
+                <div class="p-2 rounded bg-slate-950/60 border border-slate-800 space-y-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-rose-300">${c.cve_id}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">CVSS ${c.cvss_score} (${c.severity})</span>
+                  </div>
+                  <div class="text-slate-300 text-[11px]">${c.title}</div>
+                  <div class="text-slate-400 text-[10px]">${c.description}</div>
+                  <div class="text-emerald-400/90 text-[10px]"><b>Remediation:</b> ${c.remediation}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      content += `
+        <div class="glass rounded-lg p-3 space-y-2">
+          <div class="font-bold text-slate-300 uppercase tracking-wider text-[10px]">Fingerprint & Service Banners</div>
+          <pre class="bg-slate-950 p-2 rounded text-[10px] text-slate-300 overflow-x-auto font-mono max-h-40">${JSON.stringify(device.banners, null, 2)}</pre>
+        </div>
+      `;
+
+      if (device.upnp && Object.keys(device.upnp.xml_meta || {}).length > 0) {
+        content += `
+          <div class="glass rounded-lg p-3 space-y-2">
+            <div class="font-bold text-slate-300 uppercase tracking-wider text-[10px]">UPnP / SSDP Descriptor Metadata</div>
+            <pre class="bg-slate-950 p-2 rounded text-[10px] text-slate-300 overflow-x-auto font-mono max-h-40">${JSON.stringify(device.upnp.xml_meta, null, 2)}</pre>
+          </div>
+        `;
+      }
+
+      document.getElementById('modalContent').innerHTML = content;
+      document.getElementById('deviceModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('deviceModal').classList.add('hidden');
+    }
+
+    async function triggerAuditScan() {
+      const cidr = document.getElementById('targetCidr').value.trim();
+      try {
+        await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_cidr: cidr })
+        });
+        loadStatus();
+      } catch (e) {
+        alert("Failed to initiate scan: " + e);
+      }
+    }
+
+    function switchTab(tab) {
+      ['inventory', 'vlan', 'alerts'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        document.getElementById(`tabBtn-${t}`).className = "pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2";
+      });
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.getElementById(`tabBtn-${tab}`).className = "pb-3 border-b-2 border-emerald-500 text-emerald-400 flex items-center gap-2";
+    }
+
+    async function loadTraffic() {
+      try {
+        const res = await fetch('/api/traffic');
+        const data = await res.json();
+        if (data) {
+          document.getElementById('trafficIfaceBadge').innerText = `Adapter: ${data.interface || 'Detecting...'}`;
+          const rxRate = data.rx_rate_mbps > 0.1 ? `${data.rx_rate_mbps} MB/s` : `${data.rx_rate_kbps} KB/s`;
+          const txRate = data.tx_rate_mbps > 0.1 ? `${data.tx_rate_mbps} MB/s` : `${data.tx_rate_kbps} KB/s`;
+          document.getElementById('trafficRxRate').innerText = rxRate;
+          document.getElementById('trafficTxRate').innerText = txRate;
+          document.getElementById('trafficTotalRx').innerText = `Total: ${data.total_rx_mb} MB`;
+          document.getElementById('trafficTotalTx').innerText = `Total: ${data.total_tx_mb} MB`;
+          document.getElementById('trafficPackets').innerText = `${data.packets_rx_sec + data.packets_tx_sec} pkt/s`;
+          window.currentRxRate = rxRate;
+          window.currentTotalRx = `${data.total_rx_mb} MB Rx`;
+        }
+      } catch (e) {
+        console.error("Traffic load error", e);
+      }
+    }
+
+    async function initNetworkInfo() {
+      try {
+        const res = await fetch('/api/network/info');
+        const data = await res.json();
+        if (data && data.primary_cidr) {
+          const input = document.getElementById('targetCidr');
+          if (input) {
+            input.value = data.primary_cidr;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch network info:", e);
+      }
+    }
+
+    // Auto-polling and initialization
+    initNetworkInfo();
+    loadStatus();
+    loadData();
+    loadTraffic();
+    setInterval(loadStatus, 2000);
+    setInterval(loadData, 3000); // Refreshes every 3 seconds for immediate join/leave visualization
+    setInterval(loadTraffic, 1500); // Live bandwidth every 1.5 seconds
+  </script>
+</body>
+</html>

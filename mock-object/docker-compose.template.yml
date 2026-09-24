@@ -1,0 +1,64 @@
+version: '3.8'
+
+# Docker Compose Template for Scaling Mock IoT Devices across Simulated VLANs
+# To scale devices, build the images using the Dockerfiles in templates/ and run:
+#   docker compose -f docker-compose.template.yml up -d
+
+networks:
+  vlan10_standard_iot:
+    name: iot_vlan10_standard
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.10.0/24
+          gateway: 172.28.10.1
+
+  vlan99_quarantine_iot:
+    name: iot_vlan99_quarantine
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.99.0/24
+          gateway: 172.28.99.1
+
+services:
+  # Simulated IP Camera
+  mock-camera-01:
+    build:
+      context: ./templates/camera-mock
+      dockerfile: Dockerfile
+    image: iot-mock-camera:latest
+    container_name: mock-camera-01
+    hostname: dlink-cam-01
+    networks:
+      vlan10_standard_iot:
+        ipv4_address: 172.28.10.20
+    restart: unless-stopped
+
+  # Simulated Smart Plug
+  mock-smartplug-01:
+    build:
+      context: ./templates/smartplug-mock
+      dockerfile: Dockerfile
+    image: iot-mock-smartplug:latest
+    container_name: mock-smartplug-01
+    hostname: smartplug-01
+    networks:
+      vlan10_standard_iot:
+        ipv4_address: 172.28.10.21
+    restart: unless-stopped
+
+  # Simulated DVR Gateway
+  mock-dvr-01:
+    build:
+      context: ./templates/dvr-gateway-mock
+      dockerfile: Dockerfile
+    image: iot-mock-dvr:latest
+    container_name: mock-dvr-01
+    hostname: dvr-gateway-01
+    networks:
+      vlan10_standard_iot:
+        ipv4_address: 172.28.10.22
+    restart: unless-stopped

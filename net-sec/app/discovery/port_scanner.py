@@ -18,10 +18,13 @@ COMMON_IOT_PORTS = [
     5000,  # UPnP / IoT Gateway
     8080,  # HTTP Alt (IP Webcam default)
     8081,  # HTTP Alt (Camera secondary stream)
+    8089,  # HTTP Alt
+    8443,  # HTTPS Alt
+    8888,  # HTTP Alt (Embedded webcams)
     9999   # Smart Plug / Xiongmai IoT control
 ]
 
-async def check_port(ip: str, port: int, timeout: float = 0.6) -> Tuple[int, bool]:
+async def check_port(ip: str, port: int, timeout: float = 1.0) -> Tuple[int, bool]:
     """Test TCP connection to a specific port on an IP."""
     try:
         conn = asyncio.open_connection(ip, port)
@@ -32,7 +35,7 @@ async def check_port(ip: str, port: int, timeout: float = 0.6) -> Tuple[int, boo
     except (asyncio.TimeoutError, OSError):
         return port, False
 
-async def scan_host_ports(ip: str, ports: List[int] = None, timeout: float = 0.6) -> List[int]:
+async def scan_host_ports(ip: str, ports: List[int] = None, timeout: float = 1.0) -> List[int]:
     """Scan all specified ports on a single host concurrently."""
     if ports is None:
         ports = COMMON_IOT_PORTS

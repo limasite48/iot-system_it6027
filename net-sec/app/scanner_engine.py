@@ -56,7 +56,16 @@ class SecurityScannerEngine:
 
     async def scan_single_device(self, ip: str, mac: str = "", mdns_info: List[Dict] = None, upnp_info: Dict = None) -> Dict[str, Any]:
         """Deep fingerprinting and vulnerability audit of a single host."""
-        open_ports = await scan_host_ports(ip)
+        from app.discovery.port_scanner import COMMON_IOT_PORTS
+        candidate_ports = set(COMMON_IOT_PORTS)
+        if mdns_info:
+            for s in mdns_info:
+                if s.get("port"):
+                    candidate_ports.add(s["port"])
+        if upnp_info and upnp_info.get("port"):
+            candidate_ports.add(upnp_info["port"])
+
+        open_ports = await scan_host_ports(ip, ports=sorted(list(candidate_ports)))
         banners = inspect_all_banners(ip, open_ports)
         vendor = resolve_mac_vendor(mac) if mac else "Unknown"
 
@@ -106,8 +115,8 @@ class SecurityScannerEngine:
 
         # 3. Default Password & Open Access Auditing (Mandatory)
         cred_audit = test_device_credentials(ip, open_ports)
-        default_creds_found = cred_audit.get("vulnerable", False)
         is_open_access = any(f.get("is_open_access") for f in cred_audit.get("findings", []))
+        default_creds_found = any(not f.get("is_open_access") for f in cred_audit.get("findings", []))
 
         # 4. VLAN Scoping & Quarantine Policy (Bonus)
         vlan = resolve_vlan_for_ip(ip)

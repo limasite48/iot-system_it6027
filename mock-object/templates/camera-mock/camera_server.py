@@ -103,11 +103,101 @@ def run_ssdp_responder(http_port=8080):
     except Exception:
         pass
 
+def handle_rtsp_client(conn, addr):
+    try:
+        data = conn.recv(2048).decode("utf-8", errors="ignore")
+        if "OPTIONS" in data:
+            cseq = "1"
+            for line in data.split("\r\n"):
+                if line.lower().startswith("cseq:"):
+                    cseq = line.split(":", 1)[1].strip()
+            resp = (
+                f"RTSP/1.0 200 OK\r\n"
+                f"CSeq: {cseq}\r\n"
+                f"Public: OPTIONS, DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE\r\n"
+                f"Server: GoAhead-Webs/2.5\r\n\r\n"
+            )
+            conn.sendall(resp.encode("utf-8"))
+        elif "DESCRIBE" in data:
+            cseq = "1"
+            auth_header = None
+            for line in data.split("\r\n"):
+                if line.lower().startswith("cseq:"):
+                    cseq = line.split(":", 1)[1].strip()
+                elif line.lower().startswith("authorization:"):
+                    auth_header = line.split(":", 1)[1].strip()
+
+            auth_valid = False
+            if auth_header and "basic" in auth_header.lower():
+                try:
+                    token = auth_header.split(" ", 1)[1].strip()
+                    dec = base64.b64decode(token).decode("utf-8")
+                    u, p = dec.split(":", 1)
+                    if u == "admin" and p in ["admin", "123456", "password"]:
+                        auth_valid = True
+                except Exception:
+                    pass
+
+            if auth_valid:
+                resp = (
+                    f"RTSP/1.0 200 OK\r\n"
+                    f"CSeq: {cseq}\r\n"
+                    f"Content-Type: application/sdp\r\n"
+                    f"Server: GoAhead-Webs/2.5\r\n\r\n"
+                )
+            else:
+                resp = (
+                    f"RTSP/1.0 401 Unauthorized\r\n"
+                    f"CSeq: {cseq}\r\n"
+                    f'WWW-Authenticate: Basic realm="D-Link DCS-932L"\r\n'
+                    f"Server: GoAhead-Webs/2.5\r\n\r\n"
+                )
+            conn.sendall(resp.encode("utf-8"))
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def run_rtsp_server(port=554):
+    """Answers RTSP OPTIONS and DESCRIBE requests on port 554."""
+    try:
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("0.0.0.0", port))
+        srv.listen(10)
+        while True:
+            conn, addr = srv.accept()
+            threading.Thread(target=handle_rtsp_client, args=(conn, addr), daemon=True).start()
+    except Exception:
+        pass
+
+def run_mdns_advertiser(http_port=8080):
+    try:
+        from zeroconf import Zeroconf, ServiceInfo
+        zc = Zeroconf()
+        ip_bytes = socket.inet_aton(socket.gethostbyname(socket.gethostname()))
+        info = ServiceInfo(
+            "_camera._tcp.local.",
+            "D-Link-DCS-932L._camera._tcp.local.",
+            addresses=[ip_bytes],
+            port=http_port,
+            properties={"model": "DCS-932L", "vendor": "D-Link"},
+            server="dlink-cam.local."
+        )
+        zc.register_service(info)
+    except Exception:
+        pass
+
 if __name__ == "__main__":
     port = 8080
     threading.Thread(target=run_ssdp_responder, args=(port,), daemon=True).start()
+    threading.Thread(target=run_rtsp_server, args=(554,), daemon=True).start()
+    threading.Thread(target=run_mdns_advertiser, args=(port,), daemon=True).start()
     server = HTTPServer(("0.0.0.0", port), CameraHTTPHandler)
-    print(f"[*] Mock Camera online on port {port}")
+    print(f"[*] Mock Camera online on HTTP port {port} and RTSP port 554")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

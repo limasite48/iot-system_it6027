@@ -61,7 +61,12 @@ def detect_active_subnets() -> List[Dict[str, Any]]:
                     ip.startswith("192.168.137.") or
                     ip.startswith("192.168.173.")
                 )
-                
+                is_docker_iot = (
+                    ip.startswith("172.28.10.") or
+                    ip.startswith("172.28.99.")
+                )
+                is_edge = is_hotspot or is_docker_iot
+
                 subnets.append({
                     "interface": iface_name,
                     "ip": ip,
@@ -70,6 +75,8 @@ def detect_active_subnets() -> List[Dict[str, Any]]:
                     "network_address": str(network.network_address),
                     "num_addresses": network.num_addresses,
                     "is_hotspot": is_hotspot,
+                    "is_edge": is_edge,
+                    "is_wan": not is_edge,
                     "is_up": is_up
                 })
             except Exception:
@@ -80,33 +87,59 @@ def detect_active_subnets() -> List[Dict[str, Any]]:
 def get_primary_edge_cidr() -> str:
     """
     Determine the primary CIDR to audit.
-    Prioritizes active Windows Mobile Hotspot subnet, then active Wi-Fi / Ethernet subnets.
+    Prioritizes active Windows Mobile Hotspot subnet, then Docker mock subnets.
+    Always defaults to the designated Edge Subnet (192.168.137.0/24).
+    NEVER returns the upstream home/office WAN interface.
     """
     subnets = detect_active_subnets()
     # 1. Hotspot subnet
     for s in subnets:
-        if s["is_hotspot"]:
+        if s.get("is_hotspot"):
             return s["cidr"]
-    
-    # 2. Standard Wi-Fi / LAN (exclude virtual WSL/Hyper-V)
-    for s in subnets:
-        if not any(v in s["interface"].lower() for v in ["vethernet", "wsl", "docker", "virtualbox", "vmware"]):
-            return s["cidr"]
-            
-    return subnets[0]["cidr"] if subnets else "192.168.137.0/24"
 
-def get_hotspot_active_clients() -> List[Dict[str, str]]:
+    # 2. Virtual Docker IoT subnet
+    for s in subnets:
+        if s.get("is_edge"):
+            return s["cidr"]
+
+    # Always default to standard Edge Subnet (Windows Mobile Hotspot)
+    return "192.168.137.0/24"
+
+def is_edge_ip(ip_str: str) -> bool:
+    """Check if an IP belongs to an IoT Edge subnet rather than upstream WAN."""
+    try:
+        ip_obj = ipaddress.ip_address(ip_str)
+        edge_cidrs = ["192.168.137.0/24", "192.168.173.0/24", "172.28.10.0/24", "172.28.99.0/24"]
+        for s in detect_active_subnets():
+            if s.get("is_edge"):
+                edge_cidrs.append(s["cidr"])
+        return any(ip_obj in ipaddress.ip_network(c, strict=False) for c in edge_cidrs)
+    except Exception:
+        return False
+
+import threading
+_HOTSPOT_CLIENTS_CACHE: List[Dict[str, str]] = []
+_HOTSPOT_CACHE_TIME: float = 0.0
+_HOTSPOT_LOCK = threading.Lock()
+
+def get_hotspot_active_clients(force_refresh: bool = False) -> List[Dict[str, str]]:
     """
-    Query Windows Mobile Hotspot Tethering API via PowerShell.
-    Returns list of connected clients: [{'mac': '82:F9:DA:8B:0A:90', 'hostname': 'Xiaomi-12S-Pro'}].
-    If hotspot is off or on non-Windows OS, returns [].
+    Query Windows Mobile Hotspot Tethering API via PowerShell with 2.0s TTL caching.
+    Prevents spawning redundant PowerShell processes when auditing multiple hosts.
     """
+    global _HOTSPOT_CLIENTS_CACHE, _HOTSPOT_CACHE_TIME
+    import time
+    now = time.time()
+    with _HOTSPOT_LOCK:
+        if not force_refresh and (now - _HOTSPOT_CACHE_TIME < 2.0):
+            return list(_HOTSPOT_CLIENTS_CACHE)
+
     if platform.system() != "Windows" or not os.path.exists(HOTSPOT_PS_SCRIPT):
         return []
 
     try:
         cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", HOTSPOT_PS_SCRIPT]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=4)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
         if res.returncode == 0 and res.stdout.strip():
             data = json.loads(res.stdout.strip())
             clients = []
@@ -114,6 +147,9 @@ def get_hotspot_active_clients() -> List[Dict[str, str]]:
                 mac = c.get("MacAddress", "").replace("-", ":").upper()
                 hostname = c.get("Hostname", "")
                 clients.append({"mac": mac, "hostname": hostname})
+            with _HOTSPOT_LOCK:
+                _HOTSPOT_CLIENTS_CACHE = clients
+                _HOTSPOT_CACHE_TIME = time.time()
             return clients
     except Exception:
         pass

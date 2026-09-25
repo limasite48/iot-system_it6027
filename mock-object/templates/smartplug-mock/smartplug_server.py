@@ -87,11 +87,37 @@ def run_ssdp_responder(http_port=80):
     except Exception:
         pass
 
+def run_mdns_advertiser(port=9999):
+    try:
+        from zeroconf import Zeroconf, ServiceInfo
+        zc = Zeroconf()
+        ip_bytes = socket.inet_aton(socket.gethostbyname(socket.gethostname()))
+        info = ServiceInfo(
+            "_smartplug._tcp.local.",
+            "TP-Link-SmartPlug._smartplug._tcp.local.",
+            addresses=[ip_bytes],
+            port=port,
+            properties={"model": "HS100", "vendor": "TP-Link"},
+            server="smartplug.local."
+        )
+        zc.register_service(info)
+    except Exception:
+        pass
+
+def run_port_9999_server():
+    try:
+        server_9999 = HTTPServer(("0.0.0.0", 9999), SmartPlugHTTPHandler)
+        server_9999.serve_forever()
+    except Exception:
+        pass
+
 if __name__ == "__main__":
     port = 80
     threading.Thread(target=run_ssdp_responder, args=(port,), daemon=True).start()
+    threading.Thread(target=run_port_9999_server, daemon=True).start()
+    threading.Thread(target=run_mdns_advertiser, args=(9999,), daemon=True).start()
     server = HTTPServer(("0.0.0.0", port), SmartPlugHTTPHandler)
-    print(f"[*] Mock SmartPlug online on port {port}")
+    print(f"[*] Mock SmartPlug online on ports {port} and 9999")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

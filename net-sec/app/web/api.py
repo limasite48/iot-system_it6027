@@ -31,7 +31,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.discovery.network_env import get_primary_edge_cidr, detect_active_subnets, get_hotspot_active_clients
+from app.discovery.network_env import (
+    get_primary_edge_cidr,
+    detect_active_subnets,
+    get_hotspot_active_clients,
+    is_edge_ip
+)
 
 # Global engine singleton
 SCANNER = SecurityScannerEngine()
@@ -54,9 +59,11 @@ async def get_network_info():
     subnets = detect_active_subnets()
     primary = get_primary_edge_cidr()
     hotspot_peers = get_hotspot_active_clients()
+    edge_subnets = [s for s in subnets if s.get("is_edge")]
     return {
         "primary_cidr": primary,
-        "subnets": subnets,
+        "subnets": edge_subnets,
+        "all_subnets": subnets,
         "hotspot_active": any(s.get("is_hotspot") for s in subnets),
         "hotspot_clients": hotspot_peers
     }
@@ -79,11 +86,12 @@ async def serve_dashboard():
 
 @app.get("/api/status")
 async def get_status():
+    edge_devices = [d for d in SCANNER.inventory.values() if is_edge_ip(d.get("ip", ""))]
     return {
         "status": "ONLINE",
         "is_scanning": SCANNER.is_scanning,
         "last_scan_time": SCANNER.last_scan_time,
-        "device_count": len(SCANNER.inventory),
+        "device_count": len(edge_devices),
         "alert_count": len(SCANNER.alerts)
     }
 
@@ -98,7 +106,7 @@ async def trigger_scan(req: ScanRequest, background_tasks: BackgroundTasks):
 
 @app.get("/api/devices")
 async def get_devices():
-    return list(SCANNER.inventory.values())
+    return [d for d in SCANNER.inventory.values() if is_edge_ip(d.get("ip", ""))]
 
 @app.get("/api/stats")
 async def get_stats():
@@ -116,7 +124,7 @@ async def get_scoping():
 async def generate_markdown_report():
     """Generates an academic-grade markdown audit report for course submission."""
     stats = SCANNER.get_summary_statistics()
-    devices = list(SCANNER.inventory.values())
+    devices = [d for d in SCANNER.inventory.values() if is_edge_ip(d.get("ip", ""))]
     
     lines = [
         "# IoT Cybersecurity Audit & Governance Report",

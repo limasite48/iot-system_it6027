@@ -67,7 +67,22 @@ def discover_upnp_devices(timeout_seconds: float = 3.0) -> List[Dict[str, Any]]:
     sock.settimeout(0.5)
 
     try:
-        # Send M-SEARCH broadcast
+        # Send M-SEARCH broadcast across all active local interfaces
+        try:
+            from app.discovery.network_env import detect_active_subnets
+            subnets = detect_active_subnets()
+            for s in subnets:
+                iface_ip = s.get("ip")
+                if iface_ip and not iface_ip.startswith("127."):
+                    try:
+                        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(iface_ip))
+                        sock.sendto(MSEARCH_QUERY.encode("utf-8"), (SSDP_ADDR, SSDP_PORT))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # Fallback default broadcast
         sock.sendto(MSEARCH_QUERY.encode("utf-8"), (SSDP_ADDR, SSDP_PORT))
         start_time = time.time()
 

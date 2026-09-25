@@ -383,7 +383,7 @@
 
         const openPortsBadges = (d.open_ports || []).map(p => `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px] mr-1">${p}</span>`).join("") || "<span class='text-slate-500 text-xs'>None</span>";
 
-        const isOnline = d.is_online !== false;
+        const isOnline = d.is_online === true;
         const statusBadge = isOnline 
           ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE</span>`
           : `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> OFFLINE</span>`;

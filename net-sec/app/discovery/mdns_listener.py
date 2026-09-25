@@ -70,7 +70,11 @@ def discover_mdns_devices(timeout_seconds: float = 3.0) -> List[Dict[str, Any]]:
     """Scan the local network for mDNS IoT services during timeout_seconds."""
     listener = MDNSIotListener()
     try:
-        zc = Zeroconf()
+        from zeroconf import IPVersion
+        from app.discovery.network_env import detect_active_subnets
+        subnets = detect_active_subnets()
+        ips = [s["ip"] for s in subnets if s.get("ip") and not s["ip"].startswith("127.")]
+        zc = Zeroconf(interfaces=ips, ip_version=IPVersion.V4Only) if ips else Zeroconf()
         browsers = [ServiceBrowser(zc, s_type, listener) for s_type in IOT_SERVICE_TYPES]
         time.sleep(timeout_seconds)
         zc.close()

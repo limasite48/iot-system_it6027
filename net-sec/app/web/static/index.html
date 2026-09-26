@@ -28,7 +28,7 @@
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.08); }
-    .pulse-scan { animation: pulseGlow 2s infinite; }
+    .pulse-scan { animation: pulseGlow 1.5s infinite; }
     @keyframes pulseGlow {
       0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
       70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
@@ -36,50 +36,126 @@
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col md:flex-row">
 
-  <!-- Top Navigation Bar -->
-  <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-40 backdrop-blur">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+  <!-- ==================== VERTICAL SIDEBAR NAVIGATION ==================== -->
+  <aside class="w-full md:w-72 bg-slate-900/90 border-r border-slate-800 p-5 flex flex-col justify-between shrink-0 min-h-full">
+    <div class="space-y-6">
+      
+      <!-- Brand & Header -->
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xl font-bold">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xl font-bold shadow-lg shadow-emerald-950/50">
           <i class="fa-solid fa-shield-halved"></i>
         </div>
         <div>
-          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-            IoT Security & Governance Auditor
-            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IT6027</span>
+          <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+            IoT Security Auditor
+            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IT6027</span>
           </h1>
-          <p class="text-xs text-slate-400">Banner, mDNS, UPnP Fingerprinting &bull; CVE Matching &bull; Default Password Auditing &bull; VLAN Scoping</p>
+          <p class="text-[11px] text-slate-400">Cybersecurity Governance Hub</p>
         </div>
       </div>
-      <div class="flex items-center space-x-3">
-        <span id="scanStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
-          <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Idle
-        </span>
-        <a href="/api/report" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-file-lines text-slate-400"></i> Governance Report
-        </a>
+
+      <!-- Navigation Section Label -->
+      <div class="space-y-1">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 pb-1">
+          Navigation Modules
+        </div>
+
+        <!-- Vertical Menu Items -->
+        <nav class="space-y-1 text-sm font-semibold">
+          <button onclick="switchTab('inventory')" id="tabBtn-inventory" 
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 transition text-left">
+            <span class="flex items-center gap-2.5">
+              <i class="fa-solid fa-list-check w-4 text-center"></i> Device Inventory
+            </span>
+            <span id="navTotalBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">0</span>
+          </button>
+
+          <button onclick="switchTab('topology')" id="tabBtn-topology" 
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition text-left">
+            <span class="flex items-center gap-2.5">
+              <i class="fa-solid fa-project-diagram w-4 text-center"></i> Network Topology Map
+            </span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">Live SVG</span>
+          </button>
+
+          <button onclick="switchTab('triage')" id="tabBtn-triage" 
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition text-left">
+            <span class="flex items-center gap-2.5">
+              <i class="fa-solid fa-user-check w-4 text-center"></i> Auditor Governance & Triage
+            </span>
+            <span id="navTriageBadge" class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">0</span>
+          </button>
+
+          <button onclick="switchTab('vlan')" id="tabBtn-vlan" 
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition text-left">
+            <span class="flex items-center gap-2.5">
+              <i class="fa-solid fa-network-wired w-4 text-center"></i> VLAN Micro-Segmentation
+            </span>
+            <span id="navQuarantineBadge" class="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">0</span>
+          </button>
+
+          <button onclick="switchTab('scans')" id="tabBtn-scans" 
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition text-left">
+            <span class="flex items-center gap-2.5">
+              <i class="fa-solid fa-timeline w-4 text-center"></i> Scan Pipeline & History
+            </span>
+            <span id="navScansBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">0</span>
+          </button>
+
+          <button onclick="switchTab('alerts')" id="tabBtn-alerts" 
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition text-left">
+            <span class="flex items-center gap-2.5">
+              <i class="fa-solid fa-bell w-4 text-center"></i> Real-time Alerts
+            </span>
+            <span id="navAlertBadge" class="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">0</span>
+          </button>
+        </nav>
       </div>
+
     </div>
-  </header>
 
-  <!-- Main Content Layout -->
-  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <!-- Bottom Sidebar Status & Actions -->
+    <div class="pt-6 border-t border-slate-800/80 space-y-3 mt-6">
+      <!-- Live Engine Status Badge -->
+      <div class="glass rounded-xl p-3 space-y-1.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400 font-semibold text-[11px]">Audit Engine State:</span>
+          <span id="scanStatusBadge" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Idle
+          </span>
+        </div>
+        <div id="activeScanInfo" class="text-[10px] font-mono text-cyan-400/90 truncate">Scan: Idle</div>
+      </div>
 
-    <!-- Scan Trigger Action Bar -->
+      <!-- Governance Report Button -->
+      <a href="/api/report" target="_blank" 
+         class="w-full px-3 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center justify-center gap-2 shadow-sm">
+        <i class="fa-solid fa-file-lines text-emerald-400"></i> Open Governance Report
+      </a>
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN CONTENT VIEWPORT ==================== -->
+  <div class="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
+
+    <!-- Action Bar & Scope Selector -->
     <div class="glass rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-      <div class="flex items-center gap-3 w-full md:w-auto">
+      <div class="flex items-center gap-3 w-full md:w-auto flex-wrap">
         <div class="text-sm font-semibold text-slate-300 flex items-center gap-2">
           <i class="fa-solid fa-network-wired text-emerald-400"></i> Target Scope:
         </div>
         <input type="text" id="targetCidr" value="192.168.137.0/24" 
-               class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 w-52"
+               class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 w-52 font-mono"
                placeholder="e.g. 192.168.137.0/24" />
-        <span class="text-xs text-slate-400 hidden sm:inline">(Mobile Hotspot Edge Subnet)</span>
+        <span id="scopeAuthBadge" class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+          <i class="fa-solid fa-check-circle"></i> Scope Verified
+        </span>
       </div>
       <div class="flex items-center gap-3 w-full md:w-auto justify-end">
-        <button id="btnScan" onclick="triggerAuditScan()" class="w-full md:w-auto px-5 py-2 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2">
+        <button id="btnScan" onclick="triggerAuditScan()" 
+                class="w-full md:w-auto px-5 py-2 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2">
           <i class="fa-solid fa-radar" id="scanIcon"></i>
           <span id="btnScanText">Start Network Audit</span>
         </button>
@@ -98,73 +174,72 @@
           <span id="statTotal" class="text-3xl font-extrabold text-white">0</span>
           <span class="text-xs text-slate-400">IoT Nodes</span>
         </div>
-        <div id="statDeviceBreakdown" class="mt-2 text-xs text-slate-400 truncate">No devices detected yet</div>
+        <div class="mt-2 text-xs text-slate-400" id="statDeviceBreakdown">Loading...</div>
       </div>
 
-      <!-- Vulnerable Devices -->
-      <div class="glass rounded-xl p-4 border-l-4 border-rose-500">
+      <!-- Vulnerable Insecure Devices -->
+      <div class="glass rounded-xl p-4">
         <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
           <span>Insecure Devices</span>
-          <i class="fa-solid fa-triangle-exclamation text-rose-500 text-base"></i>
+          <i class="fa-solid fa-shield-virus text-rose-500 text-base"></i>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
           <span id="statVulnerable" class="text-3xl font-extrabold text-rose-400">0</span>
-          <span class="text-xs text-slate-400">High / Critical Risk</span>
+          <span class="text-xs text-rose-400/80 font-semibold">Critical / High Risk</span>
         </div>
-        <div class="mt-2 text-xs text-rose-300/80">Matched against known CVE database</div>
+        <div class="mt-2 text-xs text-slate-400">Known CVEs & Policy Violations</div>
       </div>
 
-      <!-- Default Passwords -->
-      <div class="glass rounded-xl p-4 border-l-4 border-amber-500">
+      <!-- Default Passwords Found -->
+      <div class="glass rounded-xl p-4">
         <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-          <span>Default Passwords</span>
+          <span>Default Credentials</span>
           <i class="fa-solid fa-key text-amber-500 text-base"></i>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
           <span id="statDefaultCreds" class="text-3xl font-extrabold text-amber-400">0</span>
-          <span class="text-xs text-slate-400">Violations Found</span>
+          <span class="text-xs text-amber-400/80 font-semibold">Unshielded</span>
         </div>
-        <div class="mt-2 text-xs text-amber-300/80">Predefined dictionary audit match</div>
+        <div class="mt-2 text-xs text-slate-400">Telnet, HTTP Basic/Digest, Open Streams</div>
       </div>
 
-      <!-- Quarantine Recommendation -->
-      <div class="glass rounded-xl p-4 border-l-4 border-purple-500">
+      <!-- Quarantine Recommendations -->
+      <div class="glass rounded-xl p-4">
         <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-          <span>VLAN Quarantine</span>
-          <i class="fa-solid fa-diagram-project text-purple-400 text-base"></i>
+          <span>VLAN 99 Quarantine</span>
+          <i class="fa-solid fa-triangle-exclamation text-purple-400 text-base"></i>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
           <span id="statQuarantine" class="text-3xl font-extrabold text-purple-400">0</span>
-          <span class="text-xs text-slate-400">Nodes to Isolate</span>
+          <span class="text-xs text-purple-400/80 font-semibold">Isolated Nodes</span>
         </div>
-        <div class="mt-2 text-xs text-purple-300/80">Move to VLAN 99 Quarantine</div>
+        <div class="mt-2 text-xs text-slate-400">Zero-Trust Segmentation Mandate</div>
       </div>
     </div>
 
-    <!-- Real-time Network Traffic & Bandwidth Meter -->
-    <div class="glass rounded-xl p-4 border border-cyan-500/20 bg-gradient-to-r from-slate-900/90 to-cyan-950/20">
-      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-lg">
+    <!-- Live Bandwidth & Telemetry Stream Bar -->
+    <div class="glass rounded-xl p-4">
+      <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
             <i class="fa-solid fa-chart-line"></i>
           </div>
           <div>
-            <div class="text-sm font-bold text-white flex items-center gap-2">
-              IoT Edge Network Traffic & Bandwidth
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              Physical Edge Telemetry & Video Bandwidth
               <span id="trafficIfaceBadge" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono">Adapter: Detecting...</span>
-            </div>
-            <p class="text-xs text-slate-400">Live throughput and cumulative packet counters across the Hotspot edge interface</p>
+            </h3>
+            <p class="text-xs text-slate-400">Real-time throughput for smartphone IP webcams and simulated IoT mock devices.</p>
           </div>
         </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full md:w-auto">
+        <div class="flex items-center gap-3 w-full lg:w-auto justify-end">
           <div class="bg-slate-950/60 rounded-lg px-3 py-2 border border-slate-800">
-            <div class="text-[10px] uppercase font-bold text-slate-400">Download (Rx)</div>
+            <div class="text-[10px] uppercase font-bold text-slate-400">Streaming (Rx)</div>
             <div id="trafficRxRate" class="text-sm font-extrabold text-cyan-400">0.0 KB/s</div>
             <div id="trafficTotalRx" class="text-[10px] text-slate-500">Total: 0.0 MB</div>
           </div>
           <div class="bg-slate-950/60 rounded-lg px-3 py-2 border border-slate-800">
-            <div class="text-[10px] uppercase font-bold text-slate-400">Upload (Tx)</div>
+            <div class="text-[10px] uppercase font-bold text-slate-400">Control (Tx)</div>
             <div id="trafficTxRate" class="text-sm font-extrabold text-emerald-400">0.0 KB/s</div>
             <div id="trafficTotalTx" class="text-[10px] text-slate-500">Total: 0.0 MB</div>
           </div>
@@ -184,18 +259,7 @@
       </div>
     </div>
 
-    <!-- Main Navigation Tabs -->
-    <div class="border-b border-slate-800 flex space-x-6 text-sm font-semibold">
-      <button onclick="switchTab('inventory')" id="tabBtn-inventory" class="pb-3 border-b-2 border-emerald-500 text-emerald-400 flex items-center gap-2">
-        <i class="fa-solid fa-list-check"></i> Device Inventory & Fingerprints
-      </button>
-      <button onclick="switchTab('vlan')" id="tabBtn-vlan" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
-        <i class="fa-solid fa-network-wired"></i> VLAN Scoping & Policy
-      </button>
-      <button onclick="switchTab('alerts')" id="tabBtn-alerts" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
-        <i class="fa-solid fa-bell"></i> Real-time Alerts (<span id="alertCountBadge">0</span>)
-      </button>
-    </div>
+    <!-- ==================== TAB VIEWS ==================== -->
 
     <!-- Tab 1: Device Inventory -->
     <div id="tab-inventory" class="space-y-4">
@@ -229,11 +293,58 @@
       </div>
     </div>
 
-    <!-- Tab 2: VLAN Scoping & Isolation -->
+    <!-- Tab 2: Visual Network Topology Map (ref_1.md Module G5) -->
+    <div id="tab-topology" class="hidden space-y-4">
+      <div class="glass rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-project-diagram text-cyan-400"></i> Interactive IoT Edge Network Topology Map
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Visualizes edge routing, VLAN micro-segmentation boundaries, and connected IoT devices color-coded by cybersecurity posture.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 text-xs flex-wrap">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Compliant (VLAN 10)</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500"></span> Medium Risk</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-rose-500"></span> Quarantined (VLAN 99)</span>
+          </div>
+        </div>
+        <div class="w-full overflow-x-auto bg-slate-950/80 rounded-xl border border-slate-800 p-2">
+          <svg id="topologySvg" class="w-full min-w-[750px] h-[480px]"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Auditor Governance & Triage (ref_1.md Module F3) -->
+    <div id="tab-triage" class="hidden space-y-4">
+      <div class="glass rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-user-check text-emerald-400"></i> Auditor Governance Triage & Sign-Off
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">
+            Review automatically detected security findings, confirm genuine vulnerabilities, or mark false positives prior to final governance audit reporting.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <button onclick="filterTriage(null)" class="px-3 py-1.5 rounded bg-slate-800 text-slate-200 font-semibold border border-slate-700 hover:bg-slate-700">All</button>
+          <button onclick="filterTriage('PENDING')" class="px-3 py-1.5 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/40 hover:bg-amber-500/30">Pending</button>
+          <button onclick="filterTriage('APPROVED')" class="px-3 py-1.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/40 hover:bg-emerald-500/30">Approved</button>
+          <button onclick="filterTriage('REJECTED')" class="px-3 py-1.5 rounded bg-rose-500/20 text-rose-300 font-semibold border border-rose-500/40 hover:bg-rose-500/30">Rejected</button>
+        </div>
+      </div>
+      <div id="triageFindingsContainer" class="space-y-3">
+        <!-- Dynamically rendered triage cards -->
+      </div>
+    </div>
+
+    <!-- Tab 4: VLAN Scoping & Isolation -->
     <div id="tab-vlan" class="hidden space-y-4">
       <div class="glass rounded-xl p-5">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-sitemap text-purple-400"></i> VLAN Scoping & Micro-Segmentation Policies
+          <i class="fa-solid fa-network-wired text-purple-400"></i> VLAN Scoping & Micro-Segmentation Policies
         </h2>
         <p class="text-xs text-slate-400 mt-1">
           In compliance with zero-trust network governance, insecure IoT devices must be segregated into a restricted Quarantine VLAN (VLAN 99) to prevent lateral attack propagation.
@@ -244,7 +355,40 @@
       </div>
     </div>
 
-    <!-- Tab 3: Real-Time Alerts -->
+    <!-- Tab 5: Scan Pipeline & History (ref_1.md Module G2) -->
+    <div id="tab-scans" class="hidden space-y-4">
+      <div class="glass rounded-xl p-5">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-timeline text-indigo-400"></i> Scan Orchestration Pipeline & Execution History
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">
+          Tracks execution of distinct pipeline stages (Scope Verification, Multicast Discovery, Host Sweep, Fingerprinting, and Vulnerability Assessment) with persistent scan_id records.
+        </p>
+      </div>
+      <div class="glass rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="bg-slate-900/90 text-xs uppercase font-semibold text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Scan ID</th>
+                <th class="px-4 py-3">Target CIDR</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Devices Discovered</th>
+                <th class="px-4 py-3">Quarantined</th>
+                <th class="px-4 py-3">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="scanHistoryBody" class="divide-y divide-slate-800/60">
+              <tr>
+                <td colspan="6" class="text-center py-8 text-slate-500">No scan history recorded yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 6: Real-Time Alerts -->
     <div id="tab-alerts" class="hidden space-y-4">
       <div id="alertsContainer" class="space-y-3">
         <div class="glass rounded-xl p-8 text-center text-slate-500">
@@ -254,7 +398,7 @@
       </div>
     </div>
 
-  </main>
+  </div>
 
   <!-- Device Detail Modal -->
   <div id="deviceModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
@@ -283,6 +427,7 @@
 
   <script>
     let currentDevices = [];
+    let currentTriageFilter = null;
 
     async function loadStatus() {
       try {
@@ -292,21 +437,29 @@
         const btnScan = document.getElementById('btnScan');
         const btnScanText = document.getElementById('btnScanText');
         const icon = document.getElementById('scanIcon');
+        const activeInfo = document.getElementById('activeScanInfo');
 
         if (data.is_scanning) {
-          badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20";
-          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> Scanning Network...`;
+          const stageClean = (data.current_stage || "SCANNING").replace("STAGE_", "").replace(/_/g, " ");
+          badge.className = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> ${stageClean}...`;
           btnScan.disabled = true;
           btnScan.classList.add('opacity-50', 'cursor-not-allowed');
-          btnScanText.innerText = "Auditing in progress...";
+          btnScanText.innerText = `${stageClean}...`;
           icon.className = "fa-solid fa-spinner fa-spin";
+          if (activeInfo && data.current_scan_id) {
+            activeInfo.innerText = `Scan: ${data.current_scan_id}`;
+          }
         } else {
-          badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700";
+          badge.className = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700";
           badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Idle`;
           btnScan.disabled = false;
           btnScan.classList.remove('opacity-50', 'cursor-not-allowed');
           btnScanText.innerText = "Start Network Audit";
           icon.className = "fa-solid fa-radar";
+          if (activeInfo && data.current_scan_id) {
+            activeInfo.innerText = `Last: ${data.current_scan_id}`;
+          }
         }
       } catch (e) {
         console.error("Status load error", e);
@@ -326,10 +479,13 @@
 
         // Update stats
         document.getElementById('statTotal').innerText = stats.total_devices || 0;
+        document.getElementById('navTotalBadge').innerText = stats.total_devices || 0;
         document.getElementById('statVulnerable').innerText = stats.vulnerable_devices || 0;
         document.getElementById('statDefaultCreds').innerText = stats.default_passwords_found || 0;
         document.getElementById('statQuarantine').innerText = stats.quarantine_recommended || 0;
-        document.getElementById('alertCountBadge').innerText = alerts.length;
+        document.getElementById('navQuarantineBadge').innerText = stats.quarantine_recommended || 0;
+        document.getElementById('navAlertBadge').innerText = alerts.length;
+        document.getElementById('navScansBadge').innerText = stats.total_scans_run || 0;
 
         // Breakdown text
         if (stats.device_types) {
@@ -337,21 +493,12 @@
           document.getElementById('statDeviceBreakdown').innerText = typesText || "No devices detected";
         }
 
-        try {
-          renderDeviceTable(currentDevices);
-        } catch (err) {
-          console.error("renderDeviceTable error", err);
-        }
-        try {
-          renderVlanCards(stats.vlan_groups);
-        } catch (err) {
-          console.error("renderVlanCards error", err);
-        }
-        try {
-          renderAlerts(alerts);
-        } catch (err) {
-          console.error("renderAlerts error", err);
-        }
+        renderDeviceTable(currentDevices);
+        renderVlanCards(stats.vlan_groups);
+        renderAlerts(alerts);
+        renderTopology(currentDevices);
+        loadTriageFindings();
+        loadScanHistory();
       } catch (e) {
         console.error("Data load error", e);
       }
@@ -360,7 +507,7 @@
     function renderDeviceTable(devices) {
       const tbody = document.getElementById('deviceTableBody');
       if (!devices || devices.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-10 text-slate-500"><i class="fa-solid fa-satellite-dish text-3xl mb-2 block"></i>No devices in inventory yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-10 text-slate-500"><i class="fa-solid fa-satellite-dish text-3xl mb-2 block"></i>No devices in inventory yet. Auto-discovery active.</td></tr>`;
         return;
       }
 
@@ -448,10 +595,10 @@
               ${credBadge}
             </td>
             <td class="px-4 py-3">
-              <span class="px-2 py-0.5 rounded text-xs font-bold border ${riskColor}">${d.risk_level}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${riskColor}">${d.risk_level}</span>
             </td>
             <td class="px-4 py-3 text-right">
-              <button onclick="viewDeviceDetails('${d.ip}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition">
+              <button onclick="viewDeviceDetails('${d.ip}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition">
                 Inspect
               </button>
             </td>
@@ -460,87 +607,267 @@
       }).join('');
     }
 
+    // Visual Network Topology Map (ref_1.md Module G5)
+    function renderTopology(devices) {
+      const svg = document.getElementById('topologySvg');
+      if (!svg) return;
+
+      const gwX = 400, gwY = 50;
+      const vlan100X = 180, vlan100Y = 180;
+      const vlan10X = 400, vlan10Y = 180;
+      const vlan99X = 620, vlan99Y = 180;
+
+      let svgHtml = `
+        <defs>
+          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255, 255, 255, 0.03)" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- Trunk Links from Gateway to VLAN Hubs -->
+        <line x1="${gwX}" y1="${gwY}" x2="${vlan100X}" y2="${vlan100Y}" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4" />
+        <line x1="${gwX}" y1="${gwY}" x2="${vlan10X}" y2="${vlan10Y}" stroke="#10b981" stroke-width="2" />
+        <line x1="${gwX}" y1="${gwY}" x2="${vlan99X}" y2="${vlan99Y}" stroke="#f43f5e" stroke-width="2" stroke-dasharray="2" />
+
+        <!-- Central Gateway Node -->
+        <circle cx="${gwX}" cy="${gwY}" r="22" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+        <text x="${gwX}" y="${gwY + 4}" font-size="10" font-weight="bold" fill="#38bdf8" text-anchor="middle">GW</text>
+        <text x="${gwX}" y="${gwY - 28}" font-size="11" font-weight="bold" fill="#f8fafc" text-anchor="middle">IoT Edge Gateway Router</text>
+        <text x="${gwX}" y="${gwY - 16}" font-size="9" fill="#94a3b8" text-anchor="middle">192.168.137.1 / 172.28.10.1</text>
+
+        <!-- VLAN 100 Hub -->
+        <circle cx="${vlan100X}" cy="${vlan100Y}" r="18" fill="#1e293b" stroke="#3b82f6" stroke-width="2" />
+        <text x="${vlan100X}" y="${vlan100Y + 4}" font-size="9" font-weight="bold" fill="#60a5fa" text-anchor="middle">V100</text>
+        <text x="${vlan100X}" y="${vlan100Y - 24}" font-size="10" font-weight="bold" fill="#93c5fd" text-anchor="middle">Hotspot WLAN</text>
+        <text x="${vlan100X}" y="${vlan100Y - 14}" font-size="8" fill="#64748b" text-anchor="middle">192.168.137.0/24</text>
+
+        <!-- VLAN 10 Hub -->
+        <circle cx="${vlan10X}" cy="${vlan10Y}" r="18" fill="#1e293b" stroke="#10b981" stroke-width="2" />
+        <text x="${vlan10X}" y="${vlan10Y + 4}" font-size="9" font-weight="bold" fill="#34d399" text-anchor="middle">V10</text>
+        <text x="${vlan10X}" y="${vlan10Y - 24}" font-size="10" font-weight="bold" fill="#6ee7b7" text-anchor="middle">Standard IoT</text>
+        <text x="${vlan10X}" y="${vlan10Y - 14}" font-size="8" fill="#64748b" text-anchor="middle">172.28.10.0/24</text>
+
+        <!-- VLAN 99 Quarantine Hub -->
+        <circle cx="${vlan99X}" cy="${vlan99Y}" r="18" fill="#1e293b" stroke="#f43f5e" stroke-width="2" />
+        <text x="${vlan99X}" y="${vlan99Y + 4}" font-size="9" font-weight="bold" fill="#fb7185" text-anchor="middle">V99</text>
+        <text x="${vlan99X}" y="${vlan99Y - 24}" font-size="10" font-weight="bold" fill="#fda4af" text-anchor="middle">Quarantine</text>
+        <text x="${vlan99X}" y="${vlan99Y - 14}" font-size="8" fill="#64748b" text-anchor="middle">172.28.99.0/24</text>
+      `;
+
+      const v100Devs = devices.filter(d => (d.ip || '').startsWith('192.168.137.'));
+      const otherDevs = devices.filter(d => !(d.ip || '').startsWith('192.168.137.'));
+
+      function renderDeviceNodes(devList, hubX, hubY, startY) {
+        devList.forEach((d, idx) => {
+          const isQuarantined = d.scoping_policy?.quarantine_required === true;
+          const nodeColor = isQuarantined ? '#f43f5e' : (d.risk_level === 'CRITICAL' ? '#f43f5e' : (d.risk_level === 'HIGH' ? '#fb923c' : '#10b981'));
+          const offsetX = (idx - (devList.length - 1) / 2) * 75;
+          const devX = hubX + offsetX;
+          const devY = startY;
+
+          svgHtml += `
+            <line x1="${hubX}" y1="${hubY + 18}" x2="${devX}" y2="${devY - 14}" stroke="${nodeColor}" stroke-width="1.2" opacity="0.6" />
+          `;
+
+          if (isQuarantined && hubX !== vlan99X) {
+            svgHtml += `
+              <path d="M ${devX} ${devY} Q ${(devX + vlan99X)/2} ${devY + 40} ${vlan99X} ${vlan99Y + 18}" fill="none" stroke="#f43f5e" stroke-width="1.2" stroke-dasharray="3" opacity="0.7" />
+            `;
+          }
+
+          svgHtml += `
+            <g style="cursor: pointer" onclick="viewDeviceDetails('${d.ip}')">
+              <circle cx="${devX}" cy="${devY}" r="14" fill="#0f172a" stroke="${nodeColor}" stroke-width="2" />
+              <text x="${devX}" y="${devY + 3}" font-size="8" font-weight="bold" fill="#f8fafc" text-anchor="middle">${d.device_type ? d.device_type.split(' ')[0] : 'IoT'}</text>
+              <text x="${devX}" y="${devY + 22}" font-size="9" font-weight="bold" fill="#f1f5f9" text-anchor="middle">${d.ip}</text>
+              <text x="${devX}" y="${devY + 31}" font-size="7.5" fill="${nodeColor}" text-anchor="middle">${isQuarantined ? 'QUARANTINE' : d.risk_level}</text>
+            </g>
+          `;
+        });
+      }
+
+      renderDeviceNodes(v100Devs, vlan100X, vlan100Y, 320);
+      renderDeviceNodes(otherDevs, vlan10X, vlan10Y, 320);
+
+      svg.innerHTML = svgHtml;
+    }
+
+    // Auditor Governance Triage (ref_1.md Module F3)
+    async function loadTriageFindings() {
+      try {
+        let url = '/api/findings';
+        if (currentTriageFilter) url += `?status=${currentTriageFilter}`;
+        const res = await fetch(url);
+        const findings = await res.json();
+        const container = document.getElementById('triageFindingsContainer');
+        const badge = document.getElementById('navTriageBadge');
+        const pendingCount = findings.filter(f => f.status === 'PENDING').length;
+        if (badge) badge.innerText = pendingCount;
+
+        if (!findings || findings.length === 0) {
+          container.innerHTML = `
+            <div class="glass rounded-xl p-8 text-center text-slate-500">
+              <i class="fa-solid fa-clipboard-check text-3xl mb-2 text-emerald-500/50 block"></i>
+              No findings pending triage review.
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = findings.map(f => {
+          let statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">PENDING AUDIT</span>`;
+          if (f.status === "APPROVED") {
+            statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">APPROVED VIOLATION</span>`;
+          } else if (f.status === "REJECTED") {
+            statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">REJECTED (FALSE POSITIVE)</span>`;
+          }
+
+          const cpeTag = f.cpe ? `<span class="font-mono text-[10px] text-slate-400 bg-slate-950 px-1 py-0.5 rounded">${f.cpe}</span>` : '';
+
+          return `
+            <div class="glass rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-bold text-white text-sm">${f.title}</span>
+                  ${statusBadge}
+                  <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-mono">${f.finding_type}</span>
+                </div>
+                <div class="text-xs text-slate-400">Target IP: <code class="text-slate-200">${f.target_ip}</code> &bull; Device: <b>${f.device_type}</b> &bull; Severity: <span class="font-bold text-rose-400">${f.severity}</span></div>
+                <div class="text-xs text-slate-300">${f.details}</div>
+                ${cpeTag ? `<div class="mt-1">${cpeTag}</div>` : ''}
+                ${f.auditor_notes ? `<div class="text-[11px] text-cyan-300 mt-1"><i class="fa-solid fa-comment-dots"></i> Auditor Note: ${f.auditor_notes} (${f.reviewed_by})</div>` : ''}
+              </div>
+              <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                <button onclick="submitTriage('${f.finding_id}', 'APPROVED')" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 shadow-sm">
+                  <i class="fa-solid fa-check"></i> Approve
+                </button>
+                <button onclick="submitTriage('${f.finding_id}', 'REJECTED')" class="px-3 py-1.5 rounded bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold flex items-center gap-1 shadow-sm">
+                  <i class="fa-solid fa-xmark"></i> Reject
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        console.error("Triage load error", e);
+      }
+    }
+
+    async function submitTriage(findingId, newStatus) {
+      const note = prompt(`Enter auditor note for setting finding to ${newStatus}:`, newStatus === "APPROVED" ? "Verified genuine security finding." : "Marked as accepted risk / lab test artifact.");
+      if (note === null) return;
+      try {
+        await fetch(`/api/findings/${findingId}/triage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, auditor_notes: note, reviewer: "Security Auditor" })
+        });
+        loadTriageFindings();
+      } catch (e) {
+        alert("Triage update failed: " + e);
+      }
+    }
+
+    function filterTriage(st) {
+      currentTriageFilter = st;
+      loadTriageFindings();
+    }
+
+    // Scan Pipeline & History (ref_1.md Module G2)
+    async function loadScanHistory() {
+      try {
+        const res = await fetch('/api/scans');
+        const history = await res.json();
+        const tbody = document.getElementById('scanHistoryBody');
+        if (!tbody) return;
+
+        if (!history || history.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">No scan history recorded yet.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = history.map(s => `
+          <tr class="hover:bg-slate-900/60 transition">
+            <td class="px-4 py-3 font-mono text-xs text-cyan-300 font-semibold">${s.scan_id}</td>
+            <td class="px-4 py-3 font-mono text-xs">${s.target_cidr}</td>
+            <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">${s.status}</span></td>
+            <td class="px-4 py-3 font-semibold text-slate-200">${s.devices_discovered}</td>
+            <td class="px-4 py-3 text-purple-400 font-semibold">${s.quarantined_count || 0}</td>
+            <td class="px-4 py-3 text-slate-400 text-xs">${s.start_time ? s.start_time.split('T')[1].split('.')[0] : 'N/A'}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        console.error("Scan history error", e);
+      }
+    }
+
     function renderVlanCards(vlanGroups) {
       const container = document.getElementById('vlanContainer');
       if (!vlanGroups || Object.keys(vlanGroups).length === 0) {
-        container.innerHTML = `<div class="col-span-3 text-center py-8 text-slate-500">No VLAN scoping data available. Run an audit scan.</div>`;
+        container.innerHTML = `<div class="glass rounded-xl p-8 text-center text-slate-500 col-span-3">No VLAN groups active yet.</div>`;
         return;
       }
 
-      container.innerHTML = Object.values(vlanGroups).map(vg => {
-        const isQuarantine = vg.vlan_name.includes("Quarantine");
-        const cardBorder = isQuarantine ? "border-purple-500/40 bg-purple-950/10" : "border-slate-800";
-        return `
-          <div class="glass rounded-xl p-4 border ${cardBorder} space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="font-bold text-sm text-white">${vg.vlan_name}</div>
-              <span class="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 font-mono">ID: ${vg.vlan_id}</span>
+      container.innerHTML = Object.values(vlanGroups).map(vg => `
+        <div class="glass rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span class="font-bold text-white text-sm">${vg.vlan_name}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">ID ${vg.vlan_id}</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="bg-slate-950/60 p-2 rounded">
+              <div class="text-slate-400 text-[10px]">Devices</div>
+              <div class="font-bold text-white text-sm">${vg.device_count}</div>
             </div>
-            <div class="flex gap-4 text-xs">
-              <div><span class="text-slate-400">Total:</span> <span class="font-bold text-white">${vg.device_count}</span></div>
-              <div><span class="text-slate-400">Critical:</span> <span class="font-bold text-rose-400">${vg.critical_count}</span></div>
-              <div><span class="text-slate-400">Quarantine Required:</span> <span class="font-bold text-purple-400">${vg.quarantine_count}</span></div>
+            <div class="bg-slate-950/60 p-2 rounded">
+              <div class="text-slate-400 text-[10px]">Vulnerable</div>
+              <div class="font-bold text-rose-400 text-sm">${vg.critical_count}</div>
             </div>
-            <div class="pt-2 border-t border-slate-800 space-y-1">
-              ${vg.devices.map(d => `
-                <div class="flex items-center justify-between text-xs py-1 px-2 rounded bg-slate-900/60 font-mono">
-                  <span>${d.ip} (${d.device_type})</span>
-                  <span class="text-[10px] px-1.5 py-0.5 rounded ${d.risk_level === 'CRITICAL' ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-400'}">${d.risk_level}</span>
-                </div>
-              `).join('')}
+            <div class="bg-slate-950/60 p-2 rounded">
+              <div class="text-slate-400 text-[10px]">Quarantine</div>
+              <div class="font-bold text-purple-400 text-sm">${vg.quarantine_count}</div>
             </div>
           </div>
-        `;
-      }).join('');
+          <div class="space-y-1.5 pt-1">
+            ${(vg.devices || []).map(d => `
+              <div class="flex items-center justify-between text-xs bg-slate-950/40 px-2 py-1 rounded">
+                <span class="font-mono text-slate-300">${d.ip}</span>
+                <span class="text-[10px] text-slate-400">${d.device_type}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
     }
 
     function renderAlerts(alerts) {
       const container = document.getElementById('alertsContainer');
       if (!alerts || alerts.length === 0) {
-        container.innerHTML = `
-          <div class="glass rounded-xl p-8 text-center text-slate-500">
-            <i class="fa-solid fa-check-circle text-3xl mb-2 text-emerald-500/50 block"></i>
-            No active security alerts.
-          </div>
-        `;
+        container.innerHTML = `<div class="glass rounded-xl p-8 text-center text-slate-500"><i class="fa-solid fa-check-circle text-3xl mb-2 text-emerald-500/50 block"></i>No active security alerts.</div>`;
         return;
       }
 
       container.innerHTML = alerts.map(a => {
-        const isCrit = a.severity === "CRITICAL";
-        const isWarn = a.severity === "WARNING";
-        const isInfo = a.severity === "INFO";
-
-        let borderBg = "border-amber-500 bg-amber-950/10";
-        let iconClass = "fa-circle-exclamation text-amber-400";
-        if (isCrit) {
-          borderBg = "border-rose-500 bg-rose-950/10";
-          iconClass = "fa-triangle-exclamation text-rose-400";
-        } else if (isInfo) {
-          borderBg = "border-cyan-500 bg-cyan-950/10";
-          iconClass = "fa-circle-info text-cyan-400";
+        let border = "border-slate-800";
+        let icon = "fa-triangle-exclamation text-amber-400";
+        if (a.severity === "CRITICAL") {
+          border = "border-rose-500/40 bg-rose-950/10";
+          icon = "fa-circle-radiation text-rose-500";
+        } else if (a.severity === "HIGH") {
+          border = "border-orange-500/40 bg-orange-950/10";
+          icon = "fa-triangle-exclamation text-orange-400";
         }
-
-        const timeStr = a.timestamp ? (a.timestamp.includes('T') ? a.timestamp.split('T')[1].split('.')[0] : a.timestamp) : '';
-
         return `
-          <div class="glass rounded-xl p-4 border-l-4 ${borderBg} flex items-start gap-3">
-            <div class="text-xl mt-0.5">
-              <i class="fa-solid ${iconClass}"></i>
-            </div>
-            <div class="flex-1">
+          <div class="glass rounded-xl p-4 border ${border} flex items-start gap-3">
+            <div class="text-xl mt-0.5"><i class="fa-solid ${icon}"></i></div>
+            <div class="space-y-0.5 flex-1">
               <div class="flex items-center justify-between">
-                <div class="font-bold text-sm text-white">${a.title}</div>
-                <span class="text-[10px] text-slate-500 font-mono">${timeStr}</span>
+                <div class="font-bold text-white text-sm">${a.title}</div>
+                <span class="text-[10px] font-mono text-slate-500">${a.timestamp ? a.timestamp.split('T')[1].split('.')[0] : ''}</span>
               </div>
+              <div class="text-xs text-slate-400">Target: <code class="text-slate-200">${a.device_ip}</code> &bull; Category: ${a.device_type}</div>
               <div class="text-xs text-slate-300 mt-1">${a.details}</div>
-              <div class="mt-2 flex items-center gap-2 font-mono text-[11px] text-slate-400">
-                <span>Target: <b>${a.device_ip}</b></span>
-                <span>&bull;</span>
-                <span>Type: <b>${a.device_type}</b></span>
-                <span>&bull;</span>
-                <span class="font-bold text-[10px] px-1.5 py-0.2 rounded ${isCrit ? 'bg-rose-500/20 text-rose-300' : isInfo ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300'}">${a.severity}</span>
-              </div>
             </div>
           </div>
         `;
@@ -565,6 +892,23 @@
         </div>
       `;
 
+      if (device.policy_compliance?.violations && device.policy_compliance.violations.length > 0) {
+        content += `
+          <div class="glass rounded-lg p-3 space-y-2 border border-orange-500/30 bg-orange-950/20">
+            <div class="font-bold text-orange-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+              <i class="fa-solid fa-gavel"></i> Declarative Policy Violations (YAML)
+            </div>
+            ${device.policy_compliance.violations.map(v => `
+              <div class="text-xs text-orange-200 space-y-0.5 border-b border-orange-900/40 pb-1">
+                <div class="font-bold">${v.rule_id}: ${v.title} (${v.severity})</div>
+                <div class="text-slate-400 text-[10px]">${v.description}</div>
+                <div class="text-emerald-400 text-[10px]">Standard: ${v.standard}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
       if (device.credential_findings && device.credential_findings.length > 0) {
         content += `
           <div class="glass rounded-lg p-3 space-y-2 border border-rose-500/30 bg-rose-950/20">
@@ -584,7 +928,7 @@
         content += `
           <div class="glass rounded-lg p-3 space-y-2">
             <div class="font-bold text-slate-300 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-              <i class="fa-solid fa-shield-virus text-rose-400"></i> Matched Known CVEs
+              <i class="fa-solid fa-shield-virus text-rose-400"></i> Matched Known CVEs (with CPE)
             </div>
             <div class="space-y-2">
               ${device.cves.map(c => `
@@ -594,6 +938,7 @@
                     <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">CVSS ${c.cvss_score} (${c.severity})</span>
                   </div>
                   <div class="text-slate-300 text-[11px]">${c.title}</div>
+                  ${c.cpe ? `<div class="font-mono text-[9px] text-cyan-400 bg-slate-900 px-1 py-0.5 rounded w-fit">${c.cpe}</div>` : ''}
                   <div class="text-slate-400 text-[10px]">${c.description}</div>
                   <div class="text-emerald-400/90 text-[10px]"><b>Remediation:</b> ${c.remediation}</div>
                 </div>
@@ -627,27 +972,63 @@
       document.getElementById('deviceModal').classList.add('hidden');
     }
 
+    // Immediate Reactivity on Button Click (Point 1 fix)
     async function triggerAuditScan() {
       const cidr = document.getElementById('targetCidr').value.trim();
+      const btnScan = document.getElementById('btnScan');
+      const btnScanText = document.getElementById('btnScanText');
+      const icon = document.getElementById('scanIcon');
+      const badge = document.getElementById('scanStatusBadge');
+
+      // 1. Immediate visual feedback in 0ms
+      btnScan.disabled = true;
+      btnScan.classList.add('opacity-50', 'cursor-not-allowed');
+      btnScanText.innerText = "Initiating Audit...";
+      icon.className = "fa-solid fa-spinner fa-spin";
+      badge.className = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20";
+      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> Starting Scan...`;
+
       try {
-        await fetch('/api/scan', {
+        const res = await fetch('/api/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ target_cidr: cidr })
         });
+        const data = await res.json();
+        if (res.status === 403) {
+          alert(`Scope Check Rejected: ${data.message}`);
+          loadStatus();
+          return;
+        }
+        if (res.status === 409) {
+          alert(`Notice: ${data.message}`);
+          loadStatus();
+          return;
+        }
+        // Poll status immediately
         loadStatus();
       } catch (e) {
         alert("Failed to initiate scan: " + e);
+        loadStatus();
       }
     }
 
+    // Vertical Nav Tab Switching (Point 2 fix)
     function switchTab(tab) {
-      ['inventory', 'vlan', 'alerts'].forEach(t => {
-        document.getElementById(`tab-${t}`).classList.add('hidden');
-        document.getElementById(`tabBtn-${t}`).className = "pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2";
+      ['inventory', 'topology', 'triage', 'vlan', 'scans', 'alerts'].forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`tabBtn-${t}`);
+        if (el) el.classList.add('hidden');
+        if (btn) {
+          btn.className = "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition text-left";
+        }
       });
-      document.getElementById(`tab-${tab}`).classList.remove('hidden');
-      document.getElementById(`tabBtn-${tab}`).className = "pb-3 border-b-2 border-emerald-500 text-emerald-400 flex items-center gap-2";
+      const activeEl = document.getElementById(`tab-${tab}`);
+      const activeBtn = document.getElementById(`tabBtn-${tab}`);
+      if (activeEl) activeEl.classList.remove('hidden');
+      if (activeBtn) {
+        activeBtn.className = "w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 transition text-left";
+      }
     }
 
     async function loadTraffic() {
@@ -691,9 +1072,9 @@
     loadStatus();
     loadData();
     loadTraffic();
-    setInterval(loadStatus, 2000);
-    setInterval(loadData, 3000); // Refreshes every 3 seconds for immediate join/leave visualization
-    setInterval(loadTraffic, 1500); // Live bandwidth every 1.5 seconds
+    setInterval(loadStatus, 1500);
+    setInterval(loadData, 3000);
+    setInterval(loadTraffic, 1500);
   </script>
 </body>
 </html>

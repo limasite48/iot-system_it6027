@@ -1,13 +1,15 @@
 """
 Unified Security Scanner Engine (net-sec)
 Orchestrates mDNS, UPnP, Port Scanning, Banner Grabbing, CVE Matching,
-Default Credential Auditing, and VLAN Scoping.
+Default Credential Auditing, Declarative Policy Hardening, Scope Checking,
+and VLAN Scoping with execution stages and scan_id tracking.
 Fully dynamic, eliminated hardcoded subnet assumptions and ghost ARP leases.
 """
 
 import asyncio
 import socket
 import re
+import uuid
 import subprocess
 import platform
 import ipaddress
@@ -21,6 +23,9 @@ from app.discovery.port_scanner import scan_host_ports
 from app.discovery.banner_grabber import inspect_all_banners
 from app.audit.cve_matcher import match_cves_for_device
 from app.audit.credential_checker import test_device_credentials
+from app.audit.policy_engine import GLOBAL_POLICY_ENGINE
+from app.audit.triage import GLOBAL_TRIAGE_MANAGER
+from app.scoping.scope_service import GLOBAL_SCOPE_MANAGER
 from app.scoping.classifier import classify_device
 from app.scoping.vlan_scoper import resolve_vlan_for_ip, evaluate_scoping_policy, group_devices_by_vlan
 from app.monitoring.traffic_meter import GLOBAL_TRAFFIC_METER
@@ -42,6 +47,9 @@ class SecurityScannerEngine:
         self.last_scan_time: Optional[str] = None
         self.is_scanning: bool = False
         self.presence_monitor_running: bool = False
+        self.current_scan_id: Optional[str] = None
+        self.current_stage: str = "IDLE"
+        self.scan_history: List[Dict[str, Any]] = []
 
     def get_arp_hosts(self, edge_only: bool = True) -> Dict[str, str]:
         """
@@ -118,7 +126,7 @@ class SecurityScannerEngine:
         # 1. Device Type Classification (Mandatory)
         device_type = classify_device(raw_device)
 
-        # 2. Firmware / CVE Matching (Mandatory)
+        # 2. Firmware / CVE Matching with CPE 2.3 Normalization (Mandatory)
         matched_cves = match_cves_for_device(raw_device)
 
         # 3. Default Password & Open Access Auditing (Mandatory)
@@ -126,13 +134,29 @@ class SecurityScannerEngine:
         is_open_access = any(f.get("is_open_access") for f in cred_audit.get("findings", []))
         default_creds_found = any(not f.get("is_open_access") for f in cred_audit.get("findings", []))
 
-        # 4. VLAN Scoping & Quarantine Policy (Bonus)
+        # 4. Declarative Policy Engine Evaluation
+        eval_payload = {
+            "ip": ip,
+            "open_ports": open_ports,
+            "banners": banners,
+            "default_credentials_found": default_creds_found,
+            "is_open_access": is_open_access,
+            "cves": matched_cves
+        }
+        policy_eval = GLOBAL_POLICY_ENGINE.evaluate_device(eval_payload)
+
+        # 5. VLAN Scoping & Quarantine Policy
         vlan = resolve_vlan_for_ip(ip)
         scoping_eval = evaluate_scoping_policy({
             "default_credentials_found": default_creds_found,
             "is_open_access": is_open_access,
             "cves": matched_cves
         })
+
+        # Harmonize policy engine quarantine mandate
+        if policy_eval.get("quarantine_required"):
+            scoping_eval["quarantine_required"] = True
+            scoping_eval["recommended_vlan"] = "VLAN 99 (Quarantine)"
 
         # Final aggregated device record
         full_record = {
@@ -153,9 +177,49 @@ class SecurityScannerEngine:
             "credential_findings": cred_audit.get("findings", []),
             "vlan": vlan,
             "scoping_policy": scoping_eval,
+            "policy_compliance": policy_eval,
             "risk_level": scoping_eval["risk_level"],
             "last_audited": datetime.now().isoformat()
         }
+
+        # Record findings into Auditor Triage Manager (pending human auditor review)
+        for finding in cred_audit.get("findings", []):
+            f_type = "OPEN_ACCESS" if finding.get("is_open_access") else "DEFAULT_CREDENTIAL"
+            GLOBAL_TRIAGE_MANAGER.record_finding(
+                target_ip=ip,
+                finding_type=f_type,
+                title=f"Port {finding['port']}: {finding['credential']}",
+                severity="CRITICAL",
+                details=finding["description"],
+                remediation="Enforce unique per-device passwords" if not finding.get("is_open_access") else "Enable mandatory authentication on streaming interface",
+                device_type=device_type,
+                port=finding.get("port")
+            )
+
+        for cve in matched_cves:
+            GLOBAL_TRIAGE_MANAGER.record_finding(
+                target_ip=ip,
+                finding_type="CVE",
+                title=f"{cve['cve_id']}: {cve['title']}",
+                severity=cve["severity"],
+                details=cve["description"],
+                remediation=cve["remediation"],
+                device_type=device_type,
+                cve_id=cve["cve_id"],
+                cpe=cve.get("cpe")
+            )
+
+        for v in policy_eval.get("violations", []):
+            GLOBAL_TRIAGE_MANAGER.record_finding(
+                target_ip=ip,
+                finding_type="POLICY_VIOLATION",
+                title=f"Policy {v['rule_id']}: {v['title']}",
+                severity=v["severity"],
+                details=v["description"],
+                remediation=v["remediation"],
+                device_type=device_type,
+                rule_id=v["rule_id"]
+            )
 
         # Generate Alerts if vulnerable (thread-safe)
         with self._lock:
@@ -194,22 +258,57 @@ class SecurityScannerEngine:
         return full_record
 
     async def execute_network_scan(self, target_cidr: str = None, timeout_discovery: float = 2.5) -> List[Dict[str, Any]]:
-        """Run full network discovery, audit, and scoping pipeline without hardcoded subnets."""
+        """
+        Orchestrated Scan Pipeline with distinct stages and scan_id tracking.
+        Enforces Scope Check before active probing (ref_1.md Principle).
+        """
         self.is_scanning = True
         self.last_scan_time = datetime.now().isoformat()
-        
-        # If target CIDR not provided, auto-detect the primary edge subnet
+        scan_id = f"scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
+        self.current_scan_id = scan_id
+
+        # Auto-detect target CIDR if none provided
         if not target_cidr:
             target_cidr = get_primary_edge_cidr()
 
-        print(f"[*] Starting IoT Security Audit Scan (Target: {target_cidr})...")
+        # Stage 1: Scope Verification
+        self.current_stage = "STAGE_1_SCOPE_VERIFICATION"
+        print(f"[*] [{scan_id}] Stage 1: Verifying Scope for {target_cidr}...")
+        scope_res = GLOBAL_SCOPE_MANAGER.check_scope(target_cidr)
+        if not scope_res.get("allowed"):
+            err_msg = f"Scope Violation: Scanning {target_cidr} is not permitted ({scope_res.get('reason')})."
+            print(f"[!] [{scan_id}] {err_msg}")
+            with self._lock:
+                self.alerts.append({
+                    "timestamp": datetime.now().isoformat(),
+                    "severity": "CRITICAL",
+                    "device_ip": target_cidr,
+                    "device_type": "Network Scope",
+                    "title": "Unauthorized Scan Attempt Rejected",
+                    "details": err_msg
+                })
+                self.is_scanning = False
+                self.current_stage = "SCOPE_VIOLATION_HALTED"
+                self.scan_history.append({
+                    "scan_id": scan_id,
+                    "target_cidr": target_cidr,
+                    "start_time": self.last_scan_time,
+                    "end_time": datetime.now().isoformat(),
+                    "status": "REJECTED_SCOPE_VIOLATION",
+                    "devices_discovered": 0,
+                    "stage": self.current_stage
+                })
+            return []
 
-        # Step 1: Multicast Discovery (mDNS & UPnP)
-        print("[*] Initiating mDNS & UPnP / SSDP multicast discovery...")
-        mdns_results = discover_mdns_devices(timeout_discovery)
-        upnp_results = discover_upnp_devices(timeout_discovery)
+        print(f"[*] [{scan_id}] Scope verified: {scope_res.get('vlan_name')}. Starting audit...")
 
-        # Index mDNS and UPnP by IP
+        # Stage 2: Multicast Discovery (mDNS & UPnP in parallel worker threads)
+        self.current_stage = "STAGE_2_MULTICAST_DISCOVERY"
+        print(f"[*] [{scan_id}] Stage 2: Multicast Discovery (mDNS & UPnP SSDP concurrently)...")
+        mdns_task = asyncio.to_thread(discover_mdns_devices, timeout_discovery)
+        upnp_task = asyncio.to_thread(discover_upnp_devices, timeout_discovery)
+        mdns_results, upnp_results = await asyncio.gather(mdns_task, upnp_task)
+
         mdns_by_ip = {}
         for s in mdns_results:
             for addr in s.get("addresses", []):
@@ -221,7 +320,9 @@ class SecurityScannerEngine:
             if u_ip:
                 upnp_by_ip[u_ip] = u
 
-        # Step 2: Assemble Target IP Pool
+        # Stage 3: Host Active Sweep & Target Pool Assembly
+        self.current_stage = "STAGE_3_HOST_ACTIVE_SWEEP"
+        print(f"[*] [{scan_id}] Stage 3: Assembling Target IP Pool and sweeping edge subnet...")
         arp_hosts = self.get_arp_hosts(edge_only=True)
         target_ips = set(arp_hosts.keys())
         target_ips.update(mdns_by_ip.keys())
@@ -229,7 +330,6 @@ class SecurityScannerEngine:
 
         host_ips = get_host_ips()
 
-        # Filter target IPs to target CIDR and actively sweep live hosts
         try:
             network = ipaddress.ip_network(target_cidr, strict=False)
             if network.num_addresses <= 256:
@@ -239,7 +339,7 @@ class SecurityScannerEngine:
 
                 async def probe_ip(ip_str):
                     for prt in probe_ports:
-                        p, is_open = await check_port(ip_str, prt, timeout=0.25)
+                        p, is_open = await check_port(ip_str, prt, timeout=0.15)
                         if is_open:
                             return ip_str
                     return None
@@ -251,14 +351,14 @@ class SecurityScannerEngine:
 
             target_ips = {ip for ip in target_ips if ipaddress.ip_address(ip) in network and is_edge_ip(ip)}
         except Exception as e:
-            print(f"[!] Warning parsing/sweeping CIDR {target_cidr}: {e}")
+            print(f"[!] Warning sweeping CIDR {target_cidr}: {e}")
 
         # Exclude host machine IPs and broadcast addresses
         target_ips = {ip for ip in target_ips if ip not in host_ips and not ip.startswith("127.") and not ip.endswith(".255")}
+        print(f"[*] [{scan_id}] Identified {len(target_ips)} target IP(s) for deep audit: {sorted(list(target_ips))}")
 
-        print(f"[*] Identified {len(target_ips)} target IP(s) for active port scanning and audit: {sorted(list(target_ips))}")
-
-        # Step 3: Deep Scan Each Device Concurrently
+        # Stage 4 & 5: Deep Fingerprinting, Vulnerability Audit & Policy Evaluation
+        self.current_stage = "STAGE_4_DEEP_FINGERPRINTING_AND_AUDIT"
         tasks = []
         for ip in sorted(list(target_ips)):
             mac = arp_hosts.get(ip, "")
@@ -271,7 +371,8 @@ class SecurityScannerEngine:
 
         scanned_devices = await asyncio.gather(*tasks)
 
-        # Step 4: Catalog verified active devices only (thread-safe)
+        # Stage 6: Cataloging & Presence Confirmation
+        self.current_stage = "STAGE_6_CATALOGING_AND_POLICY_SYNC"
         hotspot_clients = get_hotspot_active_clients()
         hotspot_macs = {c["mac"] for c in hotspot_clients}
 
@@ -290,7 +391,6 @@ class SecurityScannerEngine:
                 if dev["open_ports"] or dev["mdns"] or dev["upnp"] or is_hotspot_peer or is_alive:
                     self.inventory[dev_ip] = dev
                 elif dev_ip in self.inventory:
-                    # Stale lease or disconnected device marked offline
                     self.inventory[dev_ip]["is_online"] = False
 
             # Verify existing devices in inventory that fall within target_cidr
@@ -311,9 +411,33 @@ class SecurityScannerEngine:
                     pass
 
             self.is_scanning = False
+            self.current_stage = "STAGE_7_COMPLETED"
             cataloged_list = [d for d in self.inventory.values() if is_edge_ip(d.get("ip", ""))]
 
-        print(f"[+] Scan completed! {len(cataloged_list)} active IoT device(s) cataloged.")
+            # Record in scan history
+            quarantined = sum(1 for d in cataloged_list if d.get("scoping_policy", {}).get("quarantine_required"))
+            self.scan_history.append({
+                "scan_id": scan_id,
+                "target_cidr": target_cidr,
+                "start_time": self.last_scan_time,
+                "end_time": datetime.now().isoformat(),
+                "status": "COMPLETED",
+                "devices_discovered": len(cataloged_list),
+                "quarantined_count": quarantined,
+                "stage": self.current_stage,
+                "devices": [
+                    {
+                        "ip": d.get("ip", ""),
+                        "device_type": d.get("device_type", "Generic IoT Device"),
+                        "vendor": d.get("vendor", "Unknown"),
+                        "risk_level": d.get("risk_level", "LOW"),
+                        "quarantine": d.get("scoping_policy", {}).get("quarantine_required", False)
+                    }
+                    for d in cataloged_list
+                ]
+            })
+
+        print(f"[+] [{scan_id}] Scan completed! {len(cataloged_list)} active IoT device(s) cataloged.")
         return cataloged_list
 
     def check_host_alive(self, ip: str, open_ports: List[int] = None, mac: str = None, timeout_ms: int = 300) -> bool:
@@ -331,12 +455,10 @@ class SecurityScannerEngine:
         if is_in_hotspot:
             return True
 
-        # Fast short-circuit: if host is on hotspot IP with known MAC but is no longer
-        # registered in the Windows Hotspot client list, it has disconnected from the SoftAP.
         if is_hotspot_ip and mac and not is_in_hotspot:
             return False
 
-        # Layer 2: If known open ports exist, test TCP connect (fast & accurate)
+        # Layer 2: TCP connect on known open ports
         if open_ports:
             for p in open_ports[:2]:
                 try:
@@ -390,12 +512,10 @@ class SecurityScannerEngine:
         hotspot_macs = {c["mac"] for c in hotspot_clients}
         host_ips = get_host_ips()
 
-        # 1. Check existing devices for leaving / reconnecting
         with self._lock:
             items_to_check = list(self.inventory.items())
 
         for ip, dev in items_to_check:
-            # Purge non-edge IP if any leaked into inventory
             if not is_edge_ip(ip):
                 with self._lock:
                     self.inventory.pop(ip, None)
@@ -425,7 +545,6 @@ class SecurityScannerEngine:
             else:
                 with self._lock:
                     dev["missed_pings"] = dev.get("missed_pings", 0) + 1
-                    # Immediate offline detection for hotspot devices or missed_pings >= 1
                     should_mark_offline = (is_hotspot_ip and not is_hotspot_peer) or (dev["missed_pings"] >= 1)
                     if should_mark_offline and was_online:
                         dev["is_online"] = False
@@ -438,7 +557,6 @@ class SecurityScannerEngine:
                             "details": f"IoT Device {ip} ({dev.get('device_type')}) stopped responding to network heartbeat."
                         })
 
-        # 2. Check for newly joined devices across edge subnets
         arp_hosts = self.get_arp_hosts(edge_only=True)
         for ip, mac in arp_hosts.items():
             if not is_edge_ip(ip):
@@ -450,7 +568,6 @@ class SecurityScannerEngine:
             if ip in host_ips or already_known or ip.endswith(".255"):
                 continue
 
-            # Check if IP falls within managed subnets
             try:
                 ip_obj = ipaddress.ip_address(ip)
                 if not any(ip_obj in net for net in managed_networks):
@@ -458,7 +575,6 @@ class SecurityScannerEngine:
             except Exception:
                 continue
 
-            # Only scan if host is confirmed alive or in active hotspot client list
             is_hotspot_peer = bool(mac in hotspot_macs)
             if is_hotspot_peer or self.check_host_alive(ip, mac=mac):
                 try:
@@ -496,9 +612,12 @@ class SecurityScannerEngine:
         t.start()
 
     def get_summary_statistics(self) -> Dict[str, Any]:
-        """Compute system-wide dashboard metrics including traffic and online states."""
+        """Compute system-wide dashboard metrics including traffic, triage, and online states."""
         with self._lock:
             devices = [d for d in self.inventory.values() if is_edge_ip(d.get("ip", ""))]
+            current_id = self.current_scan_id
+            stage = self.current_stage
+            total_scans = len(self.scan_history)
         total = len(devices)
         online_count = sum(1 for d in devices if d.get("is_online") is True)
         offline_count = total - online_count
@@ -506,13 +625,13 @@ class SecurityScannerEngine:
         unprotected_count = sum(1 for d in devices if d.get("default_credentials_found") or d.get("is_open_access"))
         quarantine_count = sum(1 for d in devices if d.get("scoping_policy", {}).get("quarantine_required"))
         
-        # Breakdown by device type
         by_type = {}
         for d in devices:
             t = d.get("device_type", "Generic IoT Device")
             by_type[t] = by_type.get(t, 0) + 1
 
         traffic = GLOBAL_TRAFFIC_METER.get_snapshot()
+        triage_stats = GLOBAL_TRIAGE_MANAGER.get_triage_stats()
 
         return {
             "total_devices": total,
@@ -523,6 +642,10 @@ class SecurityScannerEngine:
             "quarantine_recommended": quarantine_count,
             "device_types": by_type,
             "last_scan_time": self.last_scan_time,
+            "current_scan_id": current_id,
+            "current_stage": stage,
+            "total_scans_run": total_scans,
             "vlan_groups": group_devices_by_vlan(devices),
-            "traffic": traffic
+            "traffic": traffic,
+            "triage": triage_stats
         }

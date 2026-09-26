@@ -1,0 +1,62 @@
+version: "1.0"
+title: "IoT Edge Cybersecurity Hardening & Compliance Baselines"
+policies:
+  - id: "IOT-POL-001"
+    title: "Prohibit Factory Default Credentials"
+    standard: "ETSI EN 303 645 Clause 5.1-1 & NIST IR 8259A"
+    severity: "CRITICAL"
+    description: "IoT devices must not operate with publicly known default usernames and passwords on management interfaces (Telnet, HTTP Basic/Digest, Web Forms)."
+    condition:
+      default_credentials_check: true
+    remediation: "Enforce unique per-device passwords or mandate initial credential change upon deployment."
+    quarantine_required: true
+
+  - id: "IOT-POL-002"
+    title: "Prohibit Unauthenticated Media and Actuator Exposure"
+    standard: "ETSI EN 303 645 Clause 5.1-2 & OWASP IoT Top 10"
+    severity: "CRITICAL"
+    description: "Video surveillance feeds (RTSP/MJPEG) and physical actuator relays (smart plugs) must not be accessible without authentication on the network."
+    condition:
+      open_access_check: true
+    remediation: "Enable mandatory authentication on video streams and restrict actuator APIs to authorized controllers."
+    quarantine_required: true
+
+  - id: "IOT-POL-003"
+    title: "Prohibit Cleartext Legacy Management Protocols"
+    standard: "NIST IR 8259A Baseline 4 (Data Protection)"
+    severity: "HIGH"
+    description: "Legacy unencrypted management protocols such as Telnet (TCP port 23) transmit credentials and commands in plaintext across the edge subnet."
+    condition:
+      ports_any: [23]
+    remediation: "Disable Telnet daemon; migrate device management to SSH or encrypted HTTPS."
+    quarantine_required: true
+
+  - id: "IOT-POL-004"
+    title: "Secure IoT Telemetry Messaging Broker"
+    standard: "ETSI EN 303 645 Clause 5.5-1 (Secure Communications)"
+    severity: "HIGH"
+    description: "MQTT broker allows unauthenticated anonymous clients to subscribe to wildcard '#' topics and inject or eavesdrop on telemetry."
+    condition:
+      anonymous_mqtt_check: true
+    remediation: "Require TLS encryption (port 8883) and configure username/password or client certificate authentication."
+    quarantine_required: false
+
+  - id: "IOT-POL-005"
+    title: "Prohibit Flawed UPnP / SSDP SOAP Daemons"
+    standard: "CISA IoT Security Guide & Mirai Botnet Mitigation"
+    severity: "CRITICAL"
+    description: "Embedded UPnP SOAP implementations (e.g. Realtek SDK miniigd) permit arbitrary code execution via crafted SOAP requests."
+    condition:
+      banners_contain: ["miniigd", "Portable SDK for UPnP"]
+    remediation: "Disable UPnP service on WAN and edge LAN interfaces, and update device firmware."
+    quarantine_required: true
+
+  - id: "IOT-POL-006"
+    title: "Critical Firmware Vulnerability Threshold"
+    standard: "ISO/IEC 27002 Control 8.8 (Vulnerability Management)"
+    severity: "CRITICAL"
+    description: "Devices harboring unpatched firmware vulnerabilities with CVSS score >= 9.0 pose immediate lateral movement and botnet risks."
+    condition:
+      max_cvss_threshold: 9.0
+    remediation: "Apply vendor firmware security patches and immediately isolate endpoint to Quarantine VLAN 99."
+    quarantine_required: true

@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IoTHardeningPolicySchema",
+  "type": "object",
+  "required": ["version", "title", "policies"],
+  "properties": {
+    "version": { "type": "string" },
+    "title": { "type": "string" },
+    "policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "standard", "severity", "condition", "remediation", "quarantine_required"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "standard": { "type": "string" },
+          "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+          "description": { "type": "string" },
+          "condition": {
+            "type": "object",
+            "properties": {
+              "ports_any": { "type": "array", "items": { "type": "integer" } },
+              "default_credentials_check": { "type": "boolean" },
+              "open_access_check": { "type": "boolean" },
+              "anonymous_mqtt_check": { "type": "boolean" },
+              "max_cvss_threshold": { "type": "number" },
+              "banners_contain": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "remediation": { "type": "string" },
+          "quarantine_required": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

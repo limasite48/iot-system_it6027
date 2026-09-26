@@ -2,8 +2,14 @@
   {
     "cve_id": "CVE-2020-25078",
     "title": "D-Link IP Camera Unauthenticated Configuration & Credential Disclosure",
-    "affected_vendors": ["D-Link", "D-Link Systems", "D-Link Corporation"],
-    "affected_products": ["DCS-930L", "DCS-932L", "DCS-933L", "DCS-5009L", "DCS-5020L"],
+    "cpe_uri": "cpe:2.3:o:dlink:dcs-932l_firmware:*:*:*:*:*:*:*:*",
+    "target_cpe_list": [
+      "cpe:2.3:o:dlink:dcs-932l_firmware:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:embedthis:goahead:*:*:*:*:*:*:*:*"
+    ],
+    "version_end_including": "1.14.04",
+    "affected_vendors": ["D-Link", "D-Link Systems", "D-Link Corporation", "embedthis"],
+    "affected_products": ["DCS-930L", "DCS-932L", "DCS-933L", "DCS-5009L", "DCS-5020L", "goahead", "goahead-webs"],
     "affected_banners": ["GoAhead-Webs/2.5", "GoAhead-Webs"],
     "cvss_score": 9.8,
     "severity": "CRITICAL",
@@ -14,6 +20,12 @@
   {
     "cve_id": "CVE-2017-8225",
     "title": "Xiongmai / Sofia IP Camera & DVR Remote Code Execution & RTSP Bypass",
+    "cpe_uri": "cpe:2.3:o:xiongmai:h.264_dvr_firmware:*:*:*:*:*:*:*:*",
+    "target_cpe_list": [
+      "cpe:2.3:o:xiongmai:h.264_dvr_firmware:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:xiongmai:uc-httpd:*:*:*:*:*:*:*:*"
+    ],
+    "version_end_including": "1.0.0",
     "affected_vendors": ["Xiongmai", "Sofia", "Hangzhou Xiongmai"],
     "affected_products": ["Xiongmai DVR", "H.264 DVR", "Sofia Video Server", "uc-httpd"],
     "affected_banners": ["uc-httpd", "uc-httpd 1.0.0", "Sofia RTSP"],
@@ -26,6 +38,12 @@
   {
     "cve_id": "CVE-2019-14923",
     "title": "TP-Link Smart Plug Unauthenticated Local Network Command Execution",
+    "cpe_uri": "cpe:2.3:h:tp-link:hs100:*:*:*:*:*:*:*:*",
+    "target_cpe_list": [
+      "cpe:2.3:h:tp-link:hs100:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:tp-link:hs110:*:*:*:*:*:*:*:*"
+    ],
+    "version_end_including": "1.1.0",
     "affected_vendors": ["TP-Link", "TP-Link Corporation"],
     "affected_products": ["HS100", "HS110", "Kasa Smart Plug"],
     "affected_banners": ["TP-LINK Smart Plug", "TP-Link HS100"],
@@ -38,6 +56,12 @@
   {
     "cve_id": "CVE-2014-8361",
     "title": "Realtek SDK miniigd SOAP UPnP Command Execution (Mirai Botnet Vector)",
+    "cpe_uri": "cpe:2.3:a:realtek:miniigd:*:*:*:*:*:*:*:*",
+    "target_cpe_list": [
+      "cpe:2.3:a:realtek:miniigd:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:realtek:realtek_sdk:*:*:*:*:*:*:*:*"
+    ],
+    "version_end_including": "1.0",
     "affected_vendors": ["Realtek", "D-Link", "Trendnet", "ZTE"],
     "affected_products": ["miniigd", "Realtek SDK", "RTL8196C"],
     "affected_banners": ["miniigd", "Portable SDK for UPnP", "UPnP/1.0"],
@@ -50,6 +74,12 @@
   {
     "cve_id": "CVE-2021-36260",
     "title": "Hikvision IP Camera Unauthenticated Remote Command Execution",
+    "cpe_uri": "cpe:2.3:h:hikvision:ds-2cd:*:*:*:*:*:*:*:*",
+    "target_cpe_list": [
+      "cpe:2.3:h:hikvision:ds-2cd:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:hikvision:app-webs:*:*:*:*:*:*:*:*"
+    ],
+    "version_end_including": "5.5.0",
     "affected_vendors": ["Hikvision", "Hikvision Digital Technology"],
     "affected_products": ["DS-2CD", "Hikvision IP Camera", "Network Camera"],
     "affected_banners": ["Hikvision", "App-webs"],
@@ -62,6 +92,12 @@
   {
     "cve_id": "CVE-2016-10372",
     "title": "Dahua IP Camera and DVR Hardcoded Backdoor Credentials",
+    "cpe_uri": "cpe:2.3:h:dahua:dahua_dvr:*:*:*:*:*:*:*:*",
+    "target_cpe_list": [
+      "cpe:2.3:h:dahua:dahua_dvr:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:dahua:dahua_ipc:*:*:*:*:*:*:*:*"
+    ],
+    "version_end_including": "2.400.0000.0",
     "affected_vendors": ["Dahua", "Zhejiang Dahua Technology"],
     "affected_products": ["Dahua DVR", "Dahua NVR", "Dahua IPC"],
     "affected_banners": ["Dahua RTSP Server", "Dahua-Webs", "DH-IPC"],
@@ -74,6 +110,12 @@
   {
     "cve_id": "CVE-2018-9995",
     "title": "TBK & H.264 DVR Authentication Bypass & Credential Harvesting",
+    "cpe_uri": "cpe:2.3:h:tbk:h.264_dvr:*:*:*:*:*:*:*:*",
+    "target_cpe_list": [
+      "cpe:2.3:h:tbk:h.264_dvr:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:tbk:dvr-4104:*:*:*:*:*:*:*:*"
+    ],
+    "version_end_including": "1.0",
     "affected_vendors": ["TBK", "Novo", "CeNova", "QSee"],
     "affected_products": ["DVR-4104", "DVR-4216", "H.264 DVR"],
     "affected_banners": ["H.264 DVR", "DVR Login", "NET Surveillance System"],
@@ -86,6 +128,11 @@
   {
     "cve_id": "CVE-2023-38836",
     "title": "Generic Unencrypted IoT Telemetry & Anonymous Broker Disclosure",
+    "cpe_uri": "cpe:2.3:a:eclipse:mosquitto:*:*:*:*:*:*:*:*",
+    "target_cpe_list": [
+      "cpe:2.3:a:eclipse:mosquitto:*:*:*:*:*:*:*:*"
+    ],
+    "version_end_including": "2.0.18",
     "affected_vendors": ["Generic IoT", "Eclipse", "Mosquitto"],
     "affected_products": ["Mosquitto MQTT", "MQTT Broker"],
     "affected_banners": ["MQTT", "1883"],

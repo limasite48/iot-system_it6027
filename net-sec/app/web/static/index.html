@@ -146,9 +146,9 @@
         <div class="text-sm font-semibold text-slate-300 flex items-center gap-2">
           <i class="fa-solid fa-network-wired text-emerald-400"></i> Target Scope:
         </div>
-        <input type="text" id="targetCidr" value="192.168.137.0/24" 
+        <input type="text" id="targetCidr" value="ALL" 
                class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 w-52 font-mono"
-               placeholder="e.g. 192.168.137.0/24" />
+               placeholder="ALL (or e.g. 192.168.137.0/24)" />
         <span id="scopeAuthBadge" class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
           <i class="fa-solid fa-check-circle"></i> Scope Verified
         </span>
@@ -1056,11 +1056,9 @@
       try {
         const res = await fetch('/api/network/info');
         const data = await res.json();
-        if (data && data.primary_cidr) {
-          const input = document.getElementById('targetCidr');
-          if (input) {
-            input.value = data.primary_cidr;
-          }
+        const input = document.getElementById('targetCidr');
+        if (input && (!input.value || input.value === '')) {
+          input.value = 'ALL';
         }
       } catch (e) {
         console.warn("Could not fetch network info:", e);

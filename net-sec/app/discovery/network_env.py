@@ -109,7 +109,7 @@ def is_edge_ip(ip_str: str) -> bool:
     """Check if an IP belongs to an IoT Edge subnet rather than upstream WAN."""
     try:
         ip_obj = ipaddress.ip_address(ip_str)
-        edge_cidrs = ["192.168.137.0/24", "192.168.173.0/24", "172.28.10.0/24", "172.28.99.0/24"]
+        edge_cidrs = ["192.168.137.0/24", "192.168.173.0/24", "172.28.10.0/24", "172.28.99.0/24", "127.0.0.0/24"]
         for s in detect_active_subnets():
             if s.get("is_edge"):
                 edge_cidrs.append(s["cidr"])

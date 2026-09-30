@@ -20,6 +20,9 @@ from app.monitoring.alert_dispatcher import GLOBAL_ALERT_DISPATCHER
 from app.audit.triage import GLOBAL_TRIAGE_MANAGER
 from app.scoping.scope_service import GLOBAL_SCOPE_MANAGER
 from app.audit.policy_engine import GLOBAL_POLICY_ENGINE
+from app.audit.cve_manager import GLOBAL_CVE_MANAGER
+from app.audit.cve_matcher import match_cves_for_device
+from app.audit.contextual_prioritizer import evaluate_device_context
 from app.discovery.network_env import (
     get_primary_edge_cidr,
     detect_active_subnets,
@@ -27,10 +30,25 @@ from app.discovery.network_env import (
     is_edge_ip
 )
 
+from contextlib import asynccontextmanager
+
+# Global engine singleton
+SCANNER = SecurityScannerEngine()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start real-time presence & auto-discovery monitor
+    SCANNER.start_presence_monitor(interval_seconds=4.0)
+    # Trigger initial discovery scan across active edge subnet
+    primary_cidr = get_primary_edge_cidr()
+    asyncio.create_task(SCANNER.execute_network_scan(primary_cidr))
+    yield
+
 app = FastAPI(
     title="Insecure IoT Device Detection & Management Platform",
     description="Cybersecurity Policy and Governance (IT6027) Security Auditor",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # Enable CORS
@@ -41,17 +59,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Global engine singleton
-SCANNER = SecurityScannerEngine()
-
-@app.on_event("startup")
-async def on_startup():
-    # Start real-time presence & auto-discovery monitor
-    SCANNER.start_presence_monitor(interval_seconds=4.0)
-    # Trigger initial discovery scan across active edge subnet
-    primary_cidr = get_primary_edge_cidr()
-    asyncio.create_task(SCANNER.execute_network_scan(primary_cidr))
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(STATIC_DIR):
@@ -116,7 +123,7 @@ async def get_status():
 @app.get("/api/scope/check")
 async def check_scope(cidr: Optional[str] = Query(None)):
     """Verifies whether target CIDR is authorized for scanning."""
-    target = cidr or get_primary_edge_cidr()
+    target = cidr or "ALL"
     res = GLOBAL_SCOPE_MANAGER.check_scope(target)
     return res
 
@@ -135,7 +142,7 @@ async def trigger_scan(req: ScanRequest, background_tasks: BackgroundTasks):
         }, status_code=409)
     
     # Pre-flight Scope Check
-    target = req.target_cidr or get_primary_edge_cidr()
+    target = req.target_cidr or "ALL"
     scope_eval = GLOBAL_SCOPE_MANAGER.check_scope(target)
     if not scope_eval.get("allowed"):
         return JSONResponse({
@@ -196,6 +203,51 @@ async def get_webhook_config():
 async def configure_webhook(req: WebhookConfigRequest):
     GLOBAL_ALERT_DISPATCHER.configure(req.webhook_url, req.enabled)
     return {"status": "configured", "details": GLOBAL_ALERT_DISPATCHER.get_status()}
+
+class CveSyncRequest(BaseModel):
+    reload_only: bool = True
+    custom_cve: Optional[Dict[str, Any]] = None
+
+# CVE Multi-Feed Management & Scale-up Endpoints
+@app.get("/api/cve/database")
+async def get_cve_database():
+    """Return all loaded CVE definitions and multi-feed diagnostics."""
+    return {
+        "status": "success",
+        "summary": GLOBAL_CVE_MANAGER.get_feeds_summary(),
+        "cves": GLOBAL_CVE_MANAGER.get_all_cves()
+    }
+
+@app.post("/api/cve/sync")
+async def sync_cve_database(req: Optional[CveSyncRequest] = None):
+    """Hot-reload multi-feed vulnerability database and optionally register custom scale-up CVEs."""
+    if req and req.custom_cve:
+        GLOBAL_CVE_MANAGER.register_custom_cve(req.custom_cve, persist=True)
+    reloaded_count = GLOBAL_CVE_MANAGER.reload_feeds()
+    return {
+        "status": "success",
+        "reloaded_cve_count": reloaded_count,
+        "summary": GLOBAL_CVE_MANAGER.get_feeds_summary()
+    }
+
+@app.post("/api/cve/evaluate")
+async def evaluate_cve_for_device(device_payload: Dict[str, Any]):
+    """Ad-hoc contextual evaluation for a device dictionary without scanning network."""
+    matched_raw = match_cves_for_device(device_payload)
+    context_eval = evaluate_device_context(device_payload, matched_raw)
+    return {
+        "device_summary": {
+            "vendor": device_payload.get("vendor"),
+            "model": device_payload.get("model"),
+            "open_ports": device_payload.get("open_ports", [])
+        },
+        "matched_cves": context_eval["evaluated_cves"],
+        "highest_ssvc_action": context_eval["highest_ssvc_action"],
+        "active_exploitable_count": context_eval["active_exploitable_count"],
+        "mitigated_count": context_eval["mitigated_count"],
+        "quarantine_mandated": context_eval["quarantine_mandated"],
+        "can_live_with_all": context_eval["can_live_with_all"]
+    }
 
 # Inventory & Scoping Endpoints
 @app.get("/api/devices")
@@ -258,9 +310,10 @@ async def generate_markdown_report():
         for cve in d.get("cves", []):
             found_cves = True
             cpe_tag = f" (`{cve.get('cpe')}`)" if cve.get("cpe") else ""
+            vex_info = f" | VEX: **{cve.get('vex_status', 'AFFECTED')}** ({cve.get('exploitability', 'ACTIVE_EXPLOITABLE')}) | SSVC Action: **{cve.get('ssvc_action', 'ATTEND')}**" if cve.get('vex_status') else ""
             lines.append(f"### {cve['cve_id']}: {cve['title']}{cpe_tag}")
             lines.append(f"- **Target IP**: `{d['ip']}` ({d['device_type']})")
-            lines.append(f"- **CVSS Score**: {cve['cvss_score']} ({cve['severity']})")
+            lines.append(f"- **Risk & Prioritization**: CVSS {cve['cvss_score']} ({cve['severity']}){vex_info}")
             lines.append(f"- **Description**: {cve['description']}")
             lines.append(f"- **Remediation**: {cve['remediation']}")
             lines.append("")

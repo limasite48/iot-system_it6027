@@ -2,7 +2,7 @@
 IoT CPE 2.3 Normalizer & Semantic Version Evaluator (net-sec)
 Converts discovered IoT hardware, firmware, and embedded software banners
 into standardized NIST Common Platform Enumeration (CPE 2.3) identifiers
-and performs semantic version constraint evaluation.
+with tripartite (h/o/a) candidate generation and semantic version evaluation.
 """
 
 import re
@@ -15,6 +15,7 @@ VENDOR_MAP = {
     "d-link corporation": "dlink",
     "tp-link": "tp-link",
     "tp-link corporation": "tp-link",
+    "tplink": "tp-link",
     "xiongmai": "xiongmai",
     "hangzhou xiongmai": "xiongmai",
     "sofia": "xiongmai",
@@ -26,18 +27,29 @@ VENDOR_MAP = {
     "embedthis": "embedthis",
     "eclipse": "eclipse",
     "mosquitto": "eclipse",
-    "tbk": "tbk"
+    "tbk": "tbk",
+    "espressif": "espressif",
+    "espressif systems": "espressif",
+    "ip webcam project": "ip_webcam_project",
+    "mobile device (ip webcam)": "ip_webcam_project",
+    "ip webcam": "ip_webcam_project",
+    "pavel khlebovich": "pas"
 }
 
 PRODUCT_MAP = {
     "goahead-webs": "goahead",
     "goahead_webs": "goahead",
-    "app-webs": "app-webs"
+    "app-webs": "app-webs",
+    "ip webcam": "ip_webcam",
+    "ip_webcam_server": "ip_webcam",
+    "ip webcam server": "ip_webcam",
+    "esp-idf": "esp-idf",
+    "esp_http_server": "esp-idf"
 }
 
 APPLICATION_NAMES = {
     "goahead", "goahead-webs", "uc-httpd", "miniigd", "mosquitto",
-    "busybox", "lighttpd", "boa", "app-webs", "sofia"
+    "busybox", "lighttpd", "boa", "app-webs", "sofia", "ip_webcam", "esp_http_server"
 }
 
 def clean_identifier(val: str) -> str:
@@ -133,46 +145,67 @@ class CpeNormalizer:
     def extract_cpe_candidates(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Analyze device banners, UPnP metadata, and attributes to synthesize
-        standardized CPE candidates with part and version breakdown.
+        tripartite NIST CPE 2.3 candidates:
+          - 'h' (Hardware device)
+          - 'o' (Operating System / Firmware)
+          - 'a' (Embedded Software / Applications)
         """
         candidates = []
         vendor = device_info.get("vendor", "")
         model = device_info.get("model", "")
+        firmware = device_info.get("firmware", "")
         banners = device_info.get("banners", {})
         upnp_meta = device_info.get("upnp_meta", {})
 
-        # 1. Hardware / Device level CPE
+        v_norm = clean_identifier(VENDOR_MAP.get(vendor.lower(), vendor)) if vendor else ""
+        m_norm = clean_identifier(model) if model else ""
+
+        # ---------------------------------------------------------------------
+        # 1. Tier 'h' - Hardware / Device Level CPE
+        # ---------------------------------------------------------------------
         if vendor and vendor != "Unknown" and model and model != "Unspecified":
             hw_cpe = CpeNormalizer.build_cpe_uri("h", vendor, model)
             candidates.append({
                 "cpe_uri": hw_cpe,
                 "part": "h",
-                "vendor": clean_identifier(VENDOR_MAP.get(vendor.lower(), vendor)),
-                "product": clean_identifier(model),
+                "vendor": v_norm,
+                "product": m_norm,
                 "version": "*",
+                "confidence": "HIGH",
                 "source": "device_identity"
             })
 
-        # 2. Firmware version from UPnP metadata
-        if upnp_meta:
-            mfr = upnp_meta.get("manufacturer") or vendor
-            mod = upnp_meta.get("model_name") or model
+        # ---------------------------------------------------------------------
+        # 2. Tier 'o' - Operating System / Firmware Level CPE
+        # ---------------------------------------------------------------------
+        fw_version = "*"
+        if firmware:
+            fw_version = firmware
+        elif upnp_meta:
             mod_num = upnp_meta.get("model_number") or ""
-            # Check for version in model_number or description
             ver_match = re.search(r"(\d+\.\d+(?:\.\d+)?)", mod_num)
-            ver = ver_match.group(1) if ver_match else "*"
-            if mfr and mod:
-                fw_cpe = CpeNormalizer.build_cpe_uri("o", mfr, f"{mod}_firmware", ver)
-                candidates.append({
-                    "cpe_uri": fw_cpe,
-                    "part": "o",
-                    "vendor": clean_identifier(VENDOR_MAP.get(mfr.lower(), mfr)),
-                    "product": clean_identifier(f"{mod}_firmware"),
-                    "version": ver,
-                    "source": "upnp_metadata"
-                })
+            if ver_match:
+                fw_version = ver_match.group(1)
 
-        # 3. Embedded Application / Web Server Banners
+        # Synthesize OS / Firmware CPE if vendor and model or UPnP present
+        effective_mfr = upnp_meta.get("manufacturer") or vendor
+        effective_mod = upnp_meta.get("model_name") or model
+        if effective_mfr and effective_mod and effective_mfr != "Unknown":
+            fw_prod = f"{clean_identifier(effective_mod)}_firmware"
+            fw_cpe = CpeNormalizer.build_cpe_uri("o", effective_mfr, fw_prod, fw_version)
+            candidates.append({
+                "cpe_uri": fw_cpe,
+                "part": "o",
+                "vendor": clean_identifier(VENDOR_MAP.get(effective_mfr.lower(), effective_mfr)),
+                "product": fw_prod,
+                "version": fw_version,
+                "confidence": "HIGH" if fw_version != "*" else "MEDIUM",
+                "source": "upnp_metadata" if upnp_meta else "synthesized_firmware"
+            })
+
+        # ---------------------------------------------------------------------
+        # 3. Tier 'a' - Embedded Application / Web Server / Streaming Banners
+        # ---------------------------------------------------------------------
         for port_key, b_info in banners.items():
             server_str = ""
             if isinstance(b_info, dict):
@@ -181,13 +214,18 @@ class CpeNormalizer:
                 server_str = b_info
 
             if server_str:
-                # E.g. "GoAhead-Webs/2.5.0", "uc-httpd 1.0.0", "lighttpd/1.4.35", "Mosquitto/2.0.18"
-                match = re.search(r"([a-zA-Z0-9_\-]+)[/\s]+([0-9]+(?:\.[0-9]+)*(?:-[a-zA-Z0-9]+)?)", server_str)
+                # E.g. "GoAhead-Webs/2.5.0", "uc-httpd 1.0.0", "lighttpd/1.4.35", "Mosquitto/2.0.18", "IP Webcam Server/1.14"
+                match = re.search(r"([a-zA-Z0-9_\-]+(?:-Webs)?)[/\s]+([0-9]+(?:\.[0-9]+)*(?:-[a-zA-Z0-9]+)?)", server_str)
                 if match:
                     app_name, app_ver = match.group(1), match.group(2)
-                    app_vendor = "embedthis" if "goahead" in app_name.lower() else (
-                        "eclipse" if "mosquitto" in app_name.lower() else (
-                            "xiongmai" if "uc-httpd" in app_name.lower() else vendor or "unknown"
+                    app_name_lower = app_name.lower()
+                    app_vendor = "embedthis" if "goahead" in app_name_lower else (
+                        "eclipse" if "mosquitto" in app_name_lower else (
+                            "xiongmai" if "uc-httpd" in app_name_lower else (
+                                "ip_webcam_project" if "ip" in app_name_lower and "webcam" in app_name_lower else (
+                                    "hikvision" if "app-webs" in app_name_lower else vendor or "unknown"
+                                )
+                            )
                         )
                     )
                     app_cpe = CpeNormalizer.build_cpe_uri("a", app_vendor, app_name, app_ver)
@@ -195,8 +233,20 @@ class CpeNormalizer:
                         "cpe_uri": app_cpe,
                         "part": "a",
                         "vendor": clean_identifier(VENDOR_MAP.get(app_vendor.lower(), app_vendor)),
-                        "product": clean_identifier(app_name),
+                        "product": clean_identifier(PRODUCT_MAP.get(app_name_lower, app_name)),
                         "version": app_ver,
+                        "confidence": "HIGH",
+                        "source": f"banner_{port_key}"
+                    })
+                elif "app-webs" in server_str.lower():
+                    # Hikvision App-webs banner
+                    candidates.append({
+                        "cpe_uri": CpeNormalizer.build_cpe_uri("a", "hikvision", "app-webs", "*"),
+                        "part": "a",
+                        "vendor": "hikvision",
+                        "product": "app-webs",
+                        "version": "*",
+                        "confidence": "HIGH",
                         "source": f"banner_{port_key}"
                     })
 
@@ -210,6 +260,17 @@ class CpeNormalizer:
                         "vendor": "xiongmai",
                         "product": "sofia_rtsp",
                         "version": "*",
+                        "confidence": "HIGH",
+                        "source": "rtsp_banner"
+                    })
+                elif "dahua" in rtsp_server.lower():
+                    candidates.append({
+                        "cpe_uri": CpeNormalizer.build_cpe_uri("a", "dahua", "dahua_rtsp", "*"),
+                        "part": "a",
+                        "vendor": "dahua",
+                        "product": "dahua_rtsp",
+                        "version": "*",
+                        "confidence": "HIGH",
                         "source": "rtsp_banner"
                     })
 
@@ -221,6 +282,7 @@ class CpeNormalizer:
                     "vendor": "eclipse",
                     "product": "mosquitto",
                     "version": "*",
+                    "confidence": "HIGH",
                     "source": "mqtt_banner"
                 })
 

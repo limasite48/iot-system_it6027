@@ -1,9 +1,6 @@
 version: '3.8'
 
-# Docker Compose Template for Scaling Mock IoT Devices across Simulated VLANs
-# To scale devices, build the images using the Dockerfiles in templates/ and run:
-#   docker compose -f docker-compose.template.yml up -d
-
+# Auto-generated Camera Fleet Compose Stack
 networks:
   vlan10_standard_iot:
     name: iot_vlan10_standard
@@ -14,51 +11,71 @@ networks:
         - subnet: 172.28.10.0/24
           gateway: 172.28.10.1
 
-  vlan99_quarantine_iot:
-    name: iot_vlan99_quarantine
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.28.99.0/24
-          gateway: 172.28.99.1
-
 services:
-  # Simulated IP Camera
   mock-camera-01:
     build:
-      context: ./templates/camera-mock
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: templates/camera-mock/Dockerfile
     image: iot-mock-camera:latest
     container_name: mock-camera-01
-    hostname: dlink-cam-01
+    hostname: dlink-dcs932l-01
+    environment:
+      - CAMERA_PROFILE=dlink_dcs932l
+      - MOCK_IP=172.28.10.20
+      - HTTP_PORT=8080
+      - RTSP_PORT=554
     networks:
       vlan10_standard_iot:
         ipv4_address: 172.28.10.20
     restart: unless-stopped
 
-  # Simulated Smart Plug
-  mock-smartplug-01:
+  mock-camera-02:
     build:
-      context: ./templates/smartplug-mock
-      dockerfile: Dockerfile
-    image: iot-mock-smartplug:latest
-    container_name: mock-smartplug-01
-    hostname: smartplug-01
+      context: .
+      dockerfile: templates/camera-mock/Dockerfile
+    image: iot-mock-camera:latest
+    container_name: mock-camera-02
+    hostname: hikvision-ds2cd-02
+    environment:
+      - CAMERA_PROFILE=hikvision_ds2cd
+      - MOCK_IP=172.28.10.21
+      - HTTP_PORT=80
+      - RTSP_PORT=554
     networks:
       vlan10_standard_iot:
         ipv4_address: 172.28.10.21
     restart: unless-stopped
 
-  # Simulated DVR Gateway
-  mock-dvr-01:
+  mock-camera-03:
     build:
-      context: ./templates/dvr-gateway-mock
-      dockerfile: Dockerfile
-    image: iot-mock-dvr:latest
-    container_name: mock-dvr-01
-    hostname: dvr-gateway-01
+      context: .
+      dockerfile: templates/camera-mock/Dockerfile
+    image: iot-mock-camera:latest
+    container_name: mock-camera-03
+    hostname: dahua-ipc-03
+    environment:
+      - CAMERA_PROFILE=dahua_ipc
+      - MOCK_IP=172.28.10.22
+      - HTTP_PORT=80
+      - RTSP_PORT=554
     networks:
       vlan10_standard_iot:
         ipv4_address: 172.28.10.22
+    restart: unless-stopped
+
+  mock-camera-04:
+    build:
+      context: .
+      dockerfile: templates/camera-mock/Dockerfile
+    image: iot-mock-camera:latest
+    container_name: mock-camera-04
+    hostname: open-access-cam-04
+    environment:
+      - CAMERA_PROFILE=open_access_cam
+      - MOCK_IP=172.28.10.23
+      - HTTP_PORT=8081
+      - RTSP_PORT=554
+    networks:
+      vlan10_standard_iot:
+        ipv4_address: 172.28.10.23
     restart: unless-stopped

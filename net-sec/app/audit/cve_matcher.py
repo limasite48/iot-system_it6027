@@ -1,35 +1,28 @@
 """
 Firmware & CVE Matching Engine (net-sec)
 Matches discovered device banners, UPnP descriptors, and vendor/model strings
-against the curated IoT CVE database using CPE 2.3 normalization and semantic version evaluation.
+against the scalable IoT CVE multi-feed database using CPE 2.3 normalization
+and semantic version evaluation.
 """
 
-import os
-import json
 from typing import List, Dict, Any, Optional
-
 from app.audit.cpe_normalizer import CpeNormalizer, compare_versions
-
-CVE_DB_PATH = os.path.join(os.path.dirname(__file__), "cve_database.json")
+from app.audit.cve_manager import GLOBAL_CVE_MANAGER
 
 def load_cve_database() -> List[Dict[str, Any]]:
-    try:
-        with open(CVE_DB_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"[!] Warning loading CVE database: {e}")
-        return []
+    """Legacy compatibility accessor: fetches all CVEs from the multi-feed manager."""
+    return GLOBAL_CVE_MANAGER.get_all_cves()
 
 def match_cves_for_device(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Correlate device metadata against the CVE database.
-    Integrates CPE 2.3 normalization with semantic version evaluation,
+    Correlate device metadata against the CVE multi-feed database.
+    Integrates tripartite CPE 2.3 normalization with semantic version evaluation,
     backed by fallback banner and vendor/product co-occurrence matching.
     """
-    database = load_cve_database()
+    database = GLOBAL_CVE_MANAGER.get_all_cves()
     matched_cves = []
     
-    # 1. Standardize device metadata into candidate CPE 2.3 URIs
+    # 1. Standardize device metadata into candidate CPE 2.3 URIs (h, o, a)
     cpe_candidates = CpeNormalizer.extract_cpe_candidates(device_info)
 
     # 2. Build text corpus for fallback keyword matching
@@ -112,29 +105,19 @@ def match_cves_for_device(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
                 matched_cves.append({
                     "cve_id": entry["cve_id"],
                     "title": entry["title"],
-                    "cpe": matched_cpe_uri,
+                    "cpe": matched_cpe_uri or entry.get("cpe_uri", ""),
                     "cvss_score": entry["cvss_score"],
+                    "cvss_v3": entry.get("cvss_v3", {}),
                     "severity": entry["severity"],
                     "description": entry["description"],
-                    "remediation": entry["remediation"]
+                    "remediation": entry["remediation"],
+                    "required_open_ports": entry.get("required_open_ports", []),
+                    "required_service": entry.get("required_service", ""),
+                    "cisa_kev": entry.get("cisa_kev", False),
+                    "known_botnet_vector": entry.get("known_botnet_vector", []),
+                    "cwe_id": entry.get("cwe_id", "")
                 })
 
     # Sort matched CVEs by CVSS score descending
     matched_cves.sort(key=lambda x: x["cvss_score"], reverse=True)
     return matched_cves
-
-if __name__ == "__main__":
-    test_device = {
-        "vendor": "D-Link Systems",
-        "model": "DCS-932L",
-        "banners": {
-            "http_8080": {
-                "server": "GoAhead-Webs/2.5",
-                "auth_realm": 'Basic realm="D-Link DCS-932L"'
-            }
-        }
-    }
-    print("[*] Matching CVEs for test device:")
-    cves = match_cves_for_device(test_device)
-    for c in cves:
-        print(f"  [+] {c['cve_id']} ({c['severity']} {c['cvss_score']}): {c['title']} [CPE: {c.get('cpe')}]")

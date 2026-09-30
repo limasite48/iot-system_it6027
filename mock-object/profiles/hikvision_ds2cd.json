@@ -1,0 +1,30 @@
+{
+  "profile_id": "hikvision_ds2cd",
+  "name": "Hikvision DS-2CD Network Camera",
+  "vendor": "Hikvision",
+  "model": "DS-2CD",
+  "firmware": "5.5.0",
+  "serial": "HIKDS2CD2026",
+  "default_http_port": 80,
+  "default_rtsp_port": 554,
+  "http_server_banner": "App-webs (Hikvision DS-2CD)",
+  "auth_type": "digest",
+  "auth_realm": "Hikvision-DS2CD",
+  "credentials": [
+    {"username": "admin", "password": "admin"},
+    {"username": "admin", "password": "password"},
+    {"username": "admin", "password": "12345"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": true,
+  "rtsp_auth_type": "digest",
+  "rtsp_realm": "Hikvision-DS2CD",
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:DigitalSecurityCamera:1",
+  "ssdp_server_banner": "Linux/4.4 UPnP/1.0 App-webs/1.0",
+  "mdns_enabled": true,
+  "mdns_service_name": "Hikvision-DS2CD-Camera",
+  "stream_endpoints": ["/video", "/ISAPI/Streaming/channels/101"],
+  "security_posture": "Vulnerable (App-webs & Default Digest Credentials)",
+  "cve_simulations": ["CVE-2021-36260"]
+}

@@ -1,0 +1,30 @@
+{
+  "profile_id": "dahua_ipc",
+  "name": "Dahua DH-IPC Security Camera",
+  "vendor": "Dahua",
+  "model": "DH-IPC",
+  "firmware": "2.400.0000.0",
+  "serial": "DAHUAIPC09988",
+  "default_http_port": 80,
+  "default_rtsp_port": 554,
+  "http_server_banner": "Dahua-Webs (DH-IPC)",
+  "auth_type": "basic",
+  "auth_realm": "Dahua IPC System",
+  "credentials": [
+    {"username": "admin", "password": "admin"},
+    {"username": "admin", "password": "7ujMko0vizxv"},
+    {"username": "admin", "password": "password"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": true,
+  "rtsp_auth_type": "basic",
+  "rtsp_realm": "Dahua IPC System",
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:DigitalSecurityCamera:1",
+  "ssdp_server_banner": "Linux/3.10 UPnP/1.0 Dahua-Webs",
+  "mdns_enabled": true,
+  "mdns_service_name": "Dahua-DH-IPC-Camera",
+  "stream_endpoints": ["/video", "/cam/realmonitor"],
+  "security_posture": "Critical Backdoor Credentials (CVE-2016-10372)",
+  "cve_simulations": ["CVE-2016-10372"]
+}

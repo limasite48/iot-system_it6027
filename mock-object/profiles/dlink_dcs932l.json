@@ -1,0 +1,30 @@
+{
+  "profile_id": "dlink_dcs932l",
+  "name": "D-Link DCS-932L IP Camera",
+  "vendor": "D-Link Systems",
+  "model": "DCS-932L",
+  "firmware": "1.0.1",
+  "serial": "DLINK932L00123",
+  "default_http_port": 8080,
+  "default_rtsp_port": 554,
+  "http_server_banner": "GoAhead-Webs/2.5",
+  "auth_type": "basic",
+  "auth_realm": "D-Link DCS-932L",
+  "credentials": [
+    {"username": "admin", "password": "admin"},
+    {"username": "admin", "password": "password"},
+    {"username": "admin", "password": "123456"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": true,
+  "rtsp_auth_type": "basic",
+  "rtsp_realm": "D-Link DCS-932L",
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:DigitalSecurityCamera:1",
+  "ssdp_server_banner": "Linux/3.10 UPnP/1.0 GoAhead-Webs/2.5",
+  "mdns_enabled": true,
+  "mdns_service_name": "D-Link-DCS-932L",
+  "stream_endpoints": ["/video", "/videostream.cgi", "/common/info.cgi"],
+  "security_posture": "Vulnerable (Default Credentials & Outdated Firmware)",
+  "cve_simulations": ["CVE-2020-25078"]
+}

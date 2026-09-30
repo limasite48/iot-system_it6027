@@ -22,6 +22,7 @@ from app.discovery.upnp_scanner import discover_upnp_devices
 from app.discovery.port_scanner import scan_host_ports
 from app.discovery.banner_grabber import inspect_all_banners
 from app.audit.cve_matcher import match_cves_for_device
+from app.audit.contextual_prioritizer import evaluate_device_context
 from app.audit.credential_checker import test_device_credentials
 from app.audit.policy_engine import GLOBAL_POLICY_ENGINE
 from app.audit.triage import GLOBAL_TRIAGE_MANAGER
@@ -29,6 +30,7 @@ from app.scoping.scope_service import GLOBAL_SCOPE_MANAGER
 from app.scoping.classifier import classify_device
 from app.scoping.vlan_scoper import resolve_vlan_for_ip, evaluate_scoping_policy, group_devices_by_vlan
 from app.monitoring.traffic_meter import GLOBAL_TRAFFIC_METER
+from app.monitoring.alert_dispatcher import GLOBAL_ALERT_DISPATCHER
 from app.discovery.network_env import (
     detect_active_subnets,
     get_primary_edge_cidr,
@@ -50,6 +52,15 @@ class SecurityScannerEngine:
         self.current_scan_id: Optional[str] = None
         self.current_stage: str = "IDLE"
         self.scan_history: List[Dict[str, Any]] = []
+
+    def record_alert(self, alert: Dict[str, Any]):
+        """Record alert to internal ledger and dispatch to external webhook asynchronously."""
+        with self._lock:
+            self.alerts.append(alert)
+        try:
+            GLOBAL_ALERT_DISPATCHER.dispatch_alert_async(alert)
+        except Exception:
+            pass
 
     def get_arp_hosts(self, edge_only: bool = True) -> Dict[str, str]:
         """
@@ -87,6 +98,28 @@ class SecurityScannerEngine:
 
         # Extract UPnP metadata if available
         upnp_meta = upnp_info.get("xml_meta", {}) if upnp_info else {}
+        if not upnp_meta:
+            # Fallback unicast probe if HTTP port is open (e.g. multicast SSDP filtered on bridge)
+            try:
+                from app.discovery.upnp_scanner import parse_upnp_xml
+                import httpx
+                for p in [80, 8080, 8081, 9999]:
+                    if p in open_ports:
+                        for endpoint in ["/desc.xml", "/setup.xml"]:
+                            try:
+                                resp = httpx.get(f"http://{ip}:{p}{endpoint}", timeout=1.0)
+                                if resp.status_code == 200 and "<root" in resp.text:
+                                    upnp_meta = parse_upnp_xml(resp.text)
+                                    if upnp_meta:
+                                        upnp_info = {"ip": ip, "xml_meta": upnp_meta, "port": p}
+                                        break
+                            except Exception:
+                                pass
+                        if upnp_meta:
+                            break
+            except Exception:
+                pass
+
         model = upnp_meta.get("model_name", "")
         if not vendor or vendor == "Unknown":
             vendor = upnp_meta.get("manufacturer", "Unknown")
@@ -127,14 +160,23 @@ class SecurityScannerEngine:
         device_type = classify_device(raw_device)
 
         # 2. Firmware / CVE Matching with CPE 2.3 Normalization (Mandatory)
-        matched_cves = match_cves_for_device(raw_device)
+        raw_matched_cves = match_cves_for_device(raw_device)
 
         # 3. Default Password & Open Access Auditing (Mandatory)
         cred_audit = await asyncio.to_thread(test_device_credentials, ip, open_ports)
         is_open_access = any(f.get("is_open_access") for f in cred_audit.get("findings", []))
         default_creds_found = any(not f.get("is_open_access") for f in cred_audit.get("findings", []))
 
-        # 4. Declarative Policy Engine Evaluation
+        # 4. Contextual Vulnerability Prioritization (CISA SSVC & VEX Evaluation)
+        vlan = resolve_vlan_for_ip(ip)
+        context_eval = evaluate_device_context({
+            "open_ports": open_ports,
+            "default_credentials_found": default_creds_found,
+            "vlan": vlan
+        }, raw_matched_cves)
+        matched_cves = context_eval["evaluated_cves"]
+
+        # 5. Declarative Policy Engine Evaluation
         eval_payload = {
             "ip": ip,
             "open_ports": open_ports,
@@ -145,16 +187,15 @@ class SecurityScannerEngine:
         }
         policy_eval = GLOBAL_POLICY_ENGINE.evaluate_device(eval_payload)
 
-        # 5. VLAN Scoping & Quarantine Policy
-        vlan = resolve_vlan_for_ip(ip)
+        # 6. VLAN Scoping & Quarantine Policy
         scoping_eval = evaluate_scoping_policy({
             "default_credentials_found": default_creds_found,
             "is_open_access": is_open_access,
             "cves": matched_cves
         })
 
-        # Harmonize policy engine quarantine mandate
-        if policy_eval.get("quarantine_required"):
+        # Harmonize policy engine & contextual prioritization quarantine mandates
+        if policy_eval.get("quarantine_required") or context_eval.get("quarantine_mandated"):
             scoping_eval["quarantine_required"] = True
             scoping_eval["recommended_vlan"] = "VLAN 99 (Quarantine)"
 
@@ -170,6 +211,12 @@ class SecurityScannerEngine:
             "upnp": upnp_info,
             "mdns": mdns_info or [],
             "cves": matched_cves,
+            "contextual_prioritization": {
+                "highest_ssvc_action": context_eval.get("highest_ssvc_action"),
+                "active_exploitable_count": context_eval.get("active_exploitable_count"),
+                "mitigated_count": context_eval.get("mitigated_count"),
+                "can_live_with_all": context_eval.get("can_live_with_all")
+            },
             "default_credentials_found": default_creds_found,
             "is_open_access": is_open_access,
             "is_online": True,
@@ -201,12 +248,16 @@ class SecurityScannerEngine:
                 target_ip=ip,
                 finding_type="CVE",
                 title=f"{cve['cve_id']}: {cve['title']}",
-                severity=cve["severity"],
+                severity=cve.get("threat_level", cve["severity"]),
                 details=cve["description"],
                 remediation=cve["remediation"],
                 device_type=device_type,
                 cve_id=cve["cve_id"],
-                cpe=cve.get("cpe")
+                cpe=cve.get("cpe"),
+                vex_status=cve.get("vex_status"),
+                vex_justification=cve.get("vex_justification"),
+                exploitability=cve.get("exploitability"),
+                ssvc_action=cve.get("ssvc_action")
             )
 
         for v in policy_eval.get("violations", []):
@@ -221,39 +272,38 @@ class SecurityScannerEngine:
                 rule_id=v["rule_id"]
             )
 
-        # Generate Alerts if vulnerable (thread-safe)
-        with self._lock:
-            if default_creds_found or is_open_access:
-                for finding in cred_audit.get("findings", []):
-                    if finding.get("is_open_access"):
-                        self.alerts.append({
-                            "timestamp": datetime.now().isoformat(),
-                            "severity": "CRITICAL",
-                            "device_ip": ip,
-                            "device_type": device_type,
-                            "title": f"No Password / Open Access Alert (Port {finding['port']})",
-                            "details": finding["description"]
-                        })
-                    else:
-                        self.alerts.append({
-                            "timestamp": datetime.now().isoformat(),
-                            "severity": "CRITICAL",
-                            "device_ip": ip,
-                            "device_type": device_type,
-                            "title": f"Default Credential Alert ({finding['credential']})",
-                            "details": f"Port {finding['port']} accepted publicly known default login: {finding['credential']}"
-                        })
-
-            for cve in matched_cves:
-                if cve["severity"] in ["CRITICAL", "HIGH"]:
-                    self.alerts.append({
+        # Generate Alerts if vulnerable (thread-safe and webhook dispatched)
+        if default_creds_found or is_open_access:
+            for finding in cred_audit.get("findings", []):
+                if finding.get("is_open_access"):
+                    self.record_alert({
                         "timestamp": datetime.now().isoformat(),
-                        "severity": cve["severity"],
+                        "severity": "CRITICAL",
                         "device_ip": ip,
                         "device_type": device_type,
-                        "title": f"Known CVE Alert: {cve['cve_id']} (CVSS {cve['cvss_score']})",
-                        "details": cve["description"]
+                        "title": f"No Password / Open Access Alert (Port {finding['port']})",
+                        "details": finding["description"]
                     })
+                else:
+                    self.record_alert({
+                        "timestamp": datetime.now().isoformat(),
+                        "severity": "CRITICAL",
+                        "device_ip": ip,
+                        "device_type": device_type,
+                        "title": f"Default Credential Alert ({finding['credential']})",
+                        "details": f"Port {finding['port']} accepted publicly known default login: {finding['credential']}"
+                    })
+
+        for cve in matched_cves:
+            if cve["severity"] in ["CRITICAL", "HIGH"]:
+                self.record_alert({
+                    "timestamp": datetime.now().isoformat(),
+                    "severity": cve["severity"],
+                    "device_ip": ip,
+                    "device_type": device_type,
+                    "title": f"Known CVE Alert: {cve['cve_id']} (CVSS {cve['cvss_score']})",
+                    "details": cve["description"]
+                })
 
         return full_record
 
@@ -268,8 +318,9 @@ class SecurityScannerEngine:
         self.current_scan_id = scan_id
 
         # Auto-detect target CIDR if none provided
-        if not target_cidr:
-            target_cidr = get_primary_edge_cidr()
+        is_all_mode = not target_cidr or str(target_cidr).strip().upper() in ["ALL", "AUTO", "HYBRID", "*"]
+        if is_all_mode:
+            target_cidr = "ALL"
 
         # Stage 1: Scope Verification
         self.current_stage = "STAGE_1_SCOPE_VERIFICATION"
@@ -278,15 +329,15 @@ class SecurityScannerEngine:
         if not scope_res.get("allowed"):
             err_msg = f"Scope Violation: Scanning {target_cidr} is not permitted ({scope_res.get('reason')})."
             print(f"[!] [{scan_id}] {err_msg}")
+            self.record_alert({
+                "timestamp": datetime.now().isoformat(),
+                "severity": "CRITICAL",
+                "device_ip": target_cidr,
+                "device_type": "Network Scope",
+                "title": "Unauthorized Scan Attempt Rejected",
+                "details": err_msg
+            })
             with self._lock:
-                self.alerts.append({
-                    "timestamp": datetime.now().isoformat(),
-                    "severity": "CRITICAL",
-                    "device_ip": target_cidr,
-                    "device_type": "Network Scope",
-                    "title": "Unauthorized Scan Attempt Rejected",
-                    "details": err_msg
-                })
                 self.is_scanning = False
                 self.current_stage = "SCOPE_VIOLATION_HALTED"
                 self.scan_history.append({
@@ -330,31 +381,76 @@ class SecurityScannerEngine:
 
         host_ips = get_host_ips()
 
-        try:
-            network = ipaddress.ip_network(target_cidr, strict=False)
-            if network.num_addresses <= 256:
-                from app.discovery.port_scanner import check_port
-                candidate_hosts = [str(h) for h in network.hosts() if str(h) not in host_ips and is_edge_ip(str(h))]
-                probe_ports = [80, 8080, 23, 554, 9999, 5000, 1883]
+        from app.discovery.port_scanner import check_port
+        probe_ports = [80, 8080, 23, 554, 9999, 5000, 1883, 8081]
 
-                async def probe_ip(ip_str):
-                    for prt in probe_ports:
-                        p, is_open = await check_port(ip_str, prt, timeout=0.15)
-                        if is_open:
-                            return ip_str
-                    return None
+        async def probe_ip(ip_str):
+            for prt in probe_ports:
+                p, is_open = await check_port(ip_str, prt, timeout=0.15)
+                if is_open:
+                    return ip_str
+            return None
 
-                sweep_tasks = [probe_ip(h) for h in candidate_hosts]
-                sweep_results = await asyncio.gather(*sweep_tasks)
-                active_from_sweep = {res for res in sweep_results if res}
-                target_ips.update(active_from_sweep)
+        network = None
+        if is_all_mode:
+            # Aggregate all authorized edge scopes
+            candidate_subnets = ["192.168.137.0/24", "172.28.10.0/24"]
+            for s in detect_active_subnets():
+                if s.get("is_edge") and s.get("cidr") not in candidate_subnets:
+                    candidate_subnets.append(s["cidr"])
 
-            target_ips = {ip for ip in target_ips if ipaddress.ip_address(ip) in network and is_edge_ip(ip)}
-        except Exception as e:
-            print(f"[!] Warning sweeping CIDR {target_cidr}: {e}")
+            candidate_hosts = set()
+            # 1. Any edge IP discovered from ARP, mDNS, UPnP
+            for ip in list(target_ips):
+                if is_edge_ip(ip) and ip not in host_ips and ip != "127.0.0.1":
+                    candidate_hosts.add(ip)
 
-        # Exclude host machine IPs and broadcast addresses
-        target_ips = {ip for ip in target_ips if ip not in host_ips and not ip.startswith("127.") and not ip.endswith(".255")}
+            # 2. Local testbed loopback mock IPs (127.0.0.2 to 127.0.0.16)
+            for i in range(2, 17):
+                candidate_hosts.add(f"127.0.0.{i}")
+
+            # 3. Hosts from detected active edge subnets
+            for cidr in candidate_subnets:
+                try:
+                    net = ipaddress.ip_network(cidr, strict=False)
+                    if net.num_addresses <= 256:
+                        for h in net.hosts():
+                            ip_str = str(h)
+                            if ip_str not in host_ips and is_edge_ip(ip_str):
+                                candidate_hosts.add(ip_str)
+                except Exception:
+                    pass
+
+            sweep_tasks = [probe_ip(h) for h in candidate_hosts if h not in host_ips]
+            sweep_results = await asyncio.gather(*sweep_tasks)
+            active_from_sweep = {res for res in sweep_results if res}
+            target_ips.update(active_from_sweep)
+
+            target_ips = {
+                ip for ip in target_ips
+                if is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and ip != "127.0.0.1"
+            }
+        else:
+            try:
+                network = ipaddress.ip_network(target_cidr, strict=False)
+                if network.num_addresses <= 256:
+                    candidate_hosts = [str(h) for h in network.hosts() if str(h) not in host_ips and is_edge_ip(str(h))]
+                    sweep_tasks = [probe_ip(h) for h in candidate_hosts]
+                    sweep_results = await asyncio.gather(*sweep_tasks)
+                    active_from_sweep = {res for res in sweep_results if res}
+                    target_ips.update(active_from_sweep)
+
+                target_ips = {
+                    ip for ip in target_ips
+                    if ipaddress.ip_address(ip) in network and is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and ip != "127.0.0.1"
+                }
+            except Exception as e:
+                print(f"[!] Warning sweeping CIDR {target_cidr}: {e}")
+                target_ips = {
+                    ip for ip in target_ips
+                    if is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and ip != "127.0.0.1"
+                }
+
         print(f"[*] [{scan_id}] Identified {len(target_ips)} target IP(s) for deep audit: {sorted(list(target_ips))}")
 
         # Stage 4 & 5: Deep Fingerprinting, Vulnerability Audit & Policy Evaluation
@@ -398,7 +494,7 @@ class SecurityScannerEngine:
                 if not is_edge_ip(inv_ip):
                     continue
                 try:
-                    if ipaddress.ip_address(inv_ip) in network:
+                    if is_all_mode or (network and ipaddress.ip_address(inv_ip) in network):
                         if inv_ip not in scanned_ips:
                             alive = self.check_host_alive(
                                 inv_ip,
@@ -507,6 +603,12 @@ class SecurityScannerEngine:
                 ipaddress.ip_network("192.168.137.0/24", strict=False),
                 ipaddress.ip_network("172.28.10.0/24", strict=False)
             ]
+        loopback_net = ipaddress.ip_network("127.0.0.0/24", strict=False)
+        if loopback_net not in managed_networks:
+            managed_networks.append(loopback_net)
+        hotspot_net = ipaddress.ip_network("192.168.137.0/24", strict=False)
+        if hotspot_net not in managed_networks:
+            managed_networks.append(hotspot_net)
 
         hotspot_clients = get_hotspot_active_clients()
         hotspot_macs = {c["mac"] for c in hotspot_clients}
@@ -534,7 +636,7 @@ class SecurityScannerEngine:
                     dev["missed_pings"] = 0
                     dev["last_seen"] = datetime.now().isoformat()
                     if not was_online:
-                        self.alerts.append({
+                        self.record_alert({
                             "timestamp": datetime.now().isoformat(),
                             "severity": "INFO",
                             "device_ip": ip,
@@ -548,7 +650,7 @@ class SecurityScannerEngine:
                     should_mark_offline = (is_hotspot_ip and not is_hotspot_peer) or (dev["missed_pings"] >= 1)
                     if should_mark_offline and was_online:
                         dev["is_online"] = False
-                        self.alerts.append({
+                        self.record_alert({
                             "timestamp": datetime.now().isoformat(),
                             "severity": "WARNING",
                             "device_ip": ip,
@@ -583,14 +685,14 @@ class SecurityScannerEngine:
                         new_dev["is_online"] = True
                         with self._lock:
                             self.inventory[ip] = new_dev
-                            self.alerts.append({
-                                "timestamp": datetime.now().isoformat(),
-                                "severity": "INFO",
-                                "device_ip": ip,
-                                "device_type": new_dev.get("device_type", "Unknown"),
-                                "title": f"New IoT Device Joined: {ip}",
-                                "details": f"Discovered new device {ip} ({new_dev['device_type']} - {new_dev['vendor']}) on edge subnet."
-                            })
+                        self.record_alert({
+                            "timestamp": datetime.now().isoformat(),
+                            "severity": "INFO",
+                            "device_ip": ip,
+                            "device_type": new_dev.get("device_type", "Unknown"),
+                            "title": f"New IoT Device Joined: {ip}",
+                            "details": f"Discovered new device {ip} ({new_dev['device_type']} - {new_dev['vendor']}) on edge subnet."
+                        })
                 except Exception:
                     pass
 

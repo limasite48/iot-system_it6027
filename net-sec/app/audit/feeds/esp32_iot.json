@@ -1,0 +1,59 @@
+[
+  {
+    "cve_id": "CVE-2020-13595",
+    "title": "Espressif ESP32 ESP-IDF Embedded HTTP Server Stack Overflow",
+    "target_cpe_list": [
+      "cpe:2.3:h:espressif:esp32:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:espressif:esp-idf:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:espressif:esp_http_server:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0.0",
+    "version_end_including": "4.1.0",
+    "affected_vendors": ["Espressif", "Espressif Systems"],
+    "affected_products": ["ESP32", "ESP-IDF", "ESP32-WROOM", "ESP32-CAM"],
+    "affected_banners": ["ESP32 HTTP Server", "ESP-IDF", "espressif"],
+    "required_open_ports": [80, 8080],
+    "required_service": "http",
+    "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
+    "severity": "CRITICAL",
+    "attack_vector": "NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-121",
+    "description": "A stack-based buffer overflow in the embedded HTTP server component of Espressif ESP-IDF allows remote unauthenticated attackers to execute arbitrary code or cause a crash via oversized HTTP headers.",
+    "remediation": "Upgrade ESP-IDF firmware SDK to version 4.1.1, 4.2, or newer and rebuild microcontroller firmware."
+  },
+  {
+    "cve_id": "CVE-2019-15894",
+    "title": "Espressif ESP32 Bluetooth Low Energy (BLE) Key Negotiation Weakness",
+    "target_cpe_list": [
+      "cpe:2.3:h:espressif:esp32:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:espressif:esp32_firmware:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0",
+    "version_end_including": "3.3.1",
+    "affected_vendors": ["Espressif", "Espressif Systems"],
+    "affected_products": ["ESP32", "ESP-WROOM-32"],
+    "affected_banners": ["ESP32 BLE", "ESP32-Bluetooth"],
+    "required_open_ports": [],
+    "required_service": "bluetooth",
+    "cvss_score": 7.5,
+    "cvss_v3": {
+      "score": 7.5,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "severity": "HIGH"
+    },
+    "severity": "HIGH",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-327",
+    "description": "Bluetooth controller on Espressif ESP32 allows adjacent attackers to intercept or manipulate BLE traffic due to insufficient entropy in pairing key negotiation.",
+    "remediation": "Apply Espressif patch to enforce Bluetooth Secure Connections (LE SC) with ECDH."
+  }
+]

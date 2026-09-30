@@ -88,6 +88,7 @@ def main():
     parser.add_argument("--scan", action="store_true", help="Run a one-time CLI scan and print results to terminal")
     parser.add_argument("--target", type=str, default=None, help="Target CIDR network (defaults to dynamically detected edge/hotspot subnet)")
     parser.add_argument("--web", action="store_true", help="Start the FastAPI web dashboard")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host interface to bind web server (default 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8000, help="Port for the web server (default 8000)")
 
     args = parser.parse_args()
@@ -96,7 +97,7 @@ def main():
         asyncio.run(run_cli_scan(args.target))
     else:
         # Default behavior: run web server (with CLI scan available via web UI)
-        run_web_server(port=args.port)
+        run_web_server(host=args.host, port=args.port)
 
 if __name__ == "__main__":
     main()

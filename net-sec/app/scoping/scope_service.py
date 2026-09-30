@@ -28,6 +28,12 @@ DEFAULT_AUTHORIZED_SCOPES = [
         "name": "IoT Isolation & Quarantine Subnet (VLAN 99)",
         "vlan_id": 99,
         "description": "Restricted quarantine subnet for insecure or compromised devices."
+    },
+    {
+        "cidr": "127.0.0.0/24",
+        "name": "Local IoT Testbed Emulation (VLAN 10)",
+        "vlan_id": 10,
+        "description": "Authorized local virtual loopback endpoints for IoT testbed nodes."
     }
 ]
 
@@ -56,6 +62,20 @@ class ScopeManager:
         Enforces strict compliance with authorization policies.
         """
         now = datetime.now().isoformat()
+        clean_target = str(target_cidr).strip().upper()
+        if clean_target in ["ALL", "AUTO", "HYBRID", "*"]:
+            res = {
+                "allowed": True,
+                "cidr": "ALL",
+                "matched_scope": "ALL_AUTHORIZED_EDGE_SUBNETS",
+                "vlan_name": "Aggregated IoT Edge Subnets",
+                "vlan_id": 0,
+                "reason": "Authorized by policy for all registered IoT edge subnets.",
+                "timestamp": now
+            }
+            self._audit_log.append(res)
+            return res
+
         try:
             target_net = ipaddress.ip_network(target_cidr, strict=False)
         except Exception as e:
@@ -68,22 +88,12 @@ class ScopeManager:
             self._audit_log.append(res)
             return res
 
-        # Reject public internet (WAN) and loopback
+        # Reject public internet (WAN)
         if target_net.is_global:
             res = {
                 "allowed": False,
                 "cidr": str(target_net),
                 "reason": "Scope Violation: Public Internet (WAN) ranges are strictly forbidden.",
-                "timestamp": now
-            }
-            self._audit_log.append(res)
-            return res
-
-        if target_net.is_loopback:
-            res = {
-                "allowed": False,
-                "cidr": str(target_net),
-                "reason": "Scope Violation: Loopback scanning is not authorized as an edge network.",
                 "timestamp": now
             }
             self._audit_log.append(res)
@@ -105,6 +115,16 @@ class ScopeManager:
                 }
                 self._audit_log.append(res)
                 return res
+
+        if target_net.is_loopback:
+            res = {
+                "allowed": False,
+                "cidr": str(target_net),
+                "reason": "Scope Violation: Loopback scanning is not authorized as an edge network.",
+                "timestamp": now
+            }
+            self._audit_log.append(res)
+            return res
 
         # Target is outside declared scopes (e.g. 192.168.1.0/24 upstream home network)
         res = {

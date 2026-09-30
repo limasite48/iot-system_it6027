@@ -17,7 +17,9 @@ class FindingRecord:
                  severity: str, details: str, remediation: str = "",
                  device_type: str = "Unknown", port: Optional[int] = None,
                  cve_id: Optional[str] = None, cpe: Optional[str] = None,
-                 rule_id: Optional[str] = None, finding_id: Optional[str] = None):
+                 rule_id: Optional[str] = None, finding_id: Optional[str] = None,
+                 vex_status: Optional[str] = None, vex_justification: Optional[str] = None,
+                 exploitability: Optional[str] = None, ssvc_action: Optional[str] = None):
         self.finding_id = finding_id or f"fnd_{uuid.uuid4().hex[:8]}"
         self.target_ip = target_ip
         self.device_type = device_type
@@ -30,6 +32,10 @@ class FindingRecord:
         self.cve_id = cve_id
         self.cpe = cpe
         self.rule_id = rule_id
+        self.vex_status = vex_status
+        self.vex_justification = vex_justification
+        self.exploitability = exploitability
+        self.ssvc_action = ssvc_action
         self.status = "PENDING"
         self.auditor_notes = ""
         self.reviewed_by = ""
@@ -50,6 +56,10 @@ class FindingRecord:
             "cve_id": self.cve_id,
             "cpe": self.cpe,
             "rule_id": self.rule_id,
+            "vex_status": self.vex_status,
+            "vex_justification": self.vex_justification,
+            "exploitability": self.exploitability,
+            "ssvc_action": self.ssvc_action,
             "status": self.status,
             "auditor_notes": self.auditor_notes,
             "reviewed_by": self.reviewed_by,
@@ -70,7 +80,9 @@ class AuditorTriageManager:
                        severity: str, details: str, remediation: str = "",
                        device_type: str = "Unknown", port: Optional[int] = None,
                        cve_id: Optional[str] = None, cpe: Optional[str] = None,
-                       rule_id: Optional[str] = None) -> FindingRecord:
+                       rule_id: Optional[str] = None,
+                       vex_status: Optional[str] = None, vex_justification: Optional[str] = None,
+                       exploitability: Optional[str] = None, ssvc_action: Optional[str] = None) -> FindingRecord:
         """Register or update an audit finding in a thread-safe manner."""
         with self._lock:
             key_id = cve_id or rule_id or f"port_{port}" if port else title[:20]
@@ -84,6 +96,14 @@ class AuditorTriageManager:
                 existing.details = details
                 existing.remediation = remediation or existing.remediation
                 existing.severity = severity.upper()
+                if vex_status:
+                    existing.vex_status = vex_status
+                if vex_justification:
+                    existing.vex_justification = vex_justification
+                if exploitability:
+                    existing.exploitability = exploitability
+                if ssvc_action:
+                    existing.ssvc_action = ssvc_action
                 return existing
 
             record = FindingRecord(
@@ -97,7 +117,11 @@ class AuditorTriageManager:
                 port=port,
                 cve_id=cve_id,
                 cpe=cpe,
-                rule_id=rule_id
+                rule_id=rule_id,
+                vex_status=vex_status,
+                vex_justification=vex_justification,
+                exploitability=exploitability,
+                ssvc_action=ssvc_action
             )
             self._findings[record.finding_id] = record
             return record

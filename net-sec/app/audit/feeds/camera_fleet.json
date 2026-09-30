@@ -1,0 +1,146 @@
+[
+  {
+    "cve_id": "CVE-2020-25078",
+    "title": "D-Link IP Camera Unauthenticated Configuration & Credential Disclosure",
+    "target_cpe_list": [
+      "cpe:2.3:o:dlink:dcs-932l_firmware:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:dlink:dcs-930l_firmware:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:embedthis:goahead:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0.0",
+    "version_end_including": "1.14.04",
+    "affected_vendors": ["D-Link", "D-Link Systems", "D-Link Corporation", "embedthis"],
+    "affected_products": ["DCS-930L", "DCS-932L", "DCS-933L", "DCS-5009L", "DCS-5020L", "goahead", "goahead-webs"],
+    "affected_banners": ["GoAhead-Webs/2.5", "GoAhead-Webs"],
+    "required_open_ports": [80, 8080],
+    "required_service": "http",
+    "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
+    "severity": "CRITICAL",
+    "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai", "Mozi"],
+    "cwe_id": "CWE-200",
+    "description": "An issue was discovered in D-Link DCS-series IP camera firmware through 1.14.04. An unauthenticated attacker can query /common/info.cgi to obtain administrative passwords and network configuration in plaintext.",
+    "remediation": "Update camera firmware to version 1.14.05 or higher. Isolate camera to a dedicated restricted VLAN and change default management passwords."
+  },
+  {
+    "cve_id": "CVE-2021-36260",
+    "title": "Hikvision IP Camera Unauthenticated Remote Command Execution",
+    "target_cpe_list": [
+      "cpe:2.3:h:hikvision:ds-2cd:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:hikvision:ds-2cd_firmware:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:hikvision:app-webs:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0.0",
+    "version_end_including": "5.5.0",
+    "affected_vendors": ["Hikvision", "Hikvision Digital Technology"],
+    "affected_products": ["DS-2CD", "Hikvision IP Camera", "Network Camera"],
+    "affected_banners": ["Hikvision", "App-webs"],
+    "required_open_ports": [80, 8080],
+    "required_service": "http",
+    "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
+    "severity": "CRITICAL",
+    "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai", "Dark.IoT"],
+    "cwe_id": "CWE-78",
+    "description": "A command injection vulnerability in the web server of Hikvision cameras allows attackers to gain full administrative root access via specially crafted message packages sent to the device without authentication.",
+    "remediation": "Apply the official Hikvision security firmware update (v5.5.800 or newer) and enforce network access control lists."
+  },
+  {
+    "cve_id": "CVE-2016-10372",
+    "title": "Dahua IP Camera and DVR Hardcoded Backdoor Credentials",
+    "target_cpe_list": [
+      "cpe:2.3:h:dahua:dahua_dvr:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:dahua:dahua_ipc:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:dahua:dahua_ipc_firmware:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0.0",
+    "version_end_including": "2.400.0000.0",
+    "affected_vendors": ["Dahua", "Zhejiang Dahua Technology"],
+    "affected_products": ["Dahua DVR", "Dahua NVR", "Dahua IPC"],
+    "affected_banners": ["Dahua RTSP Server", "Dahua-Webs", "DH-IPC"],
+    "required_open_ports": [23, 80, 37777],
+    "required_service": "http",
+    "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
+    "severity": "CRITICAL",
+    "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai"],
+    "cwe_id": "CWE-798",
+    "description": "Multiple Dahua DVR and IP Camera models contain hardcoded cryptographic credentials and hidden administrative accounts (e.g. 7ujMko0vizxv) accessible via Telnet or web interfaces.",
+    "remediation": "Update Dahua firmware to remove the backdoor accounts and disable Telnet access."
+  },
+  {
+    "cve_id": "CVE-2017-8225",
+    "title": "Xiongmai / Sofia IP Camera & DVR Remote Code Execution & RTSP Bypass",
+    "target_cpe_list": [
+      "cpe:2.3:o:xiongmai:h.264_dvr_firmware:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:xiongmai:uc-httpd:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:xiongmai:sofia_rtsp:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0.0",
+    "version_end_including": "1.0.0",
+    "affected_vendors": ["Xiongmai", "Sofia", "Hangzhou Xiongmai"],
+    "affected_products": ["Xiongmai DVR", "H.264 DVR", "Sofia Video Server", "uc-httpd"],
+    "affected_banners": ["uc-httpd", "uc-httpd 1.0.0", "Sofia RTSP"],
+    "required_open_ports": [80, 554],
+    "required_service": "rtsp",
+    "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
+    "severity": "CRITICAL",
+    "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai", "Persirai"],
+    "cwe_id": "CWE-287",
+    "description": "Multiple Xiongmai-based IP cameras and DVRs allow unauthenticated remote attackers to bypass RTSP stream authentication and execute arbitrary commands via undocumented JSON APIs on port 80/554.",
+    "remediation": "Disable cloud P2P features, block incoming traffic on ports 23, 80, 554 from untrusted networks, and apply vendor firmware patches."
+  },
+  {
+    "cve_id": "CVE-2018-9995",
+    "title": "TBK & H.264 DVR Authentication Bypass & Credential Harvesting",
+    "target_cpe_list": [
+      "cpe:2.3:h:tbk:h.264_dvr:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:tbk:dvr-4104:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0.0",
+    "version_end_including": "1.0.0",
+    "affected_vendors": ["TBK", "Novo", "CeNova", "QSee"],
+    "affected_products": ["DVR-4104", "DVR-4216", "H.264 DVR"],
+    "affected_banners": ["H.264 DVR", "DVR Login", "NET Surveillance System"],
+    "required_open_ports": [80, 8080],
+    "required_service": "http",
+    "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
+    "severity": "CRITICAL",
+    "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai"],
+    "cwe_id": "CWE-287",
+    "description": "An authentication bypass vulnerability in multiple DVR devices allows remote attackers to obtain user credentials by crafting a Cookie: uid=admin HTTP header sent to /device.rsp.",
+    "remediation": "Replace legacy DVR hardware or place behind a secure VPN gateway with zero direct network exposure."
+  }
+]

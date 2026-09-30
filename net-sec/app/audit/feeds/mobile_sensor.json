@@ -1,0 +1,30 @@
+[
+  {
+    "cve_id": "CVE-2022-26325",
+    "title": "Android IP Webcam Unauthenticated Video Frame & Telemetry Disclosure",
+    "target_cpe_list": [
+      "cpe:2.3:a:ip_webcam_project:ip_webcam:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:pas:ip_webcam:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0",
+    "version_end_including": "1.14.34",
+    "affected_vendors": ["Mobile Device (IP Webcam)", "IP Webcam Project", "Pavel Khlebovich"],
+    "affected_products": ["IP Webcam Android", "IP Webcam Server"],
+    "affected_banners": ["IP Webcam Server/1.14", "IP Webcam Server"],
+    "required_open_ports": [8080],
+    "required_service": "http",
+    "cvss_score": 7.5,
+    "cvss_v3": {
+      "score": 7.5,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "severity": "HIGH"
+    },
+    "severity": "HIGH",
+    "attack_vector": "NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-306",
+    "description": "Android IP Webcam application when deployed with default options exposes video feed endpoints (/video, /shot.jpg) and camera orientation telemetry without mandatory authentication.",
+    "remediation": "Enable password protection inside IP Webcam app settings, enforce HTTPS, and isolate mobile host to dedicated guest/hotspot VLAN."
+  }
+]

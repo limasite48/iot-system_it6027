@@ -1,0 +1,29 @@
+{
+  "profile_id": "ip_webcam",
+  "name": "Android IP Webcam (Mobile Phone Sensor)",
+  "vendor": "Mobile Device (IP Webcam)",
+  "model": "IP Webcam Android",
+  "firmware": "1.14.34",
+  "serial": "ANDROIDIPCAM001",
+  "default_http_port": 8080,
+  "default_rtsp_port": 8554,
+  "http_server_banner": "IP Webcam Server/1.14",
+  "auth_type": "digest",
+  "auth_realm": "IP Webcam",
+  "credentials": [
+    {"username": "admin", "password": "admin"},
+    {"username": "admin", "password": "123456"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": false,
+  "rtsp_auth_type": "none",
+  "rtsp_realm": "IP Webcam",
+  "ssdp_enabled": false,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:DigitalSecurityCamera:1",
+  "ssdp_server_banner": "Android/12 UPnP/1.0",
+  "mdns_enabled": true,
+  "mdns_service_name": "Android-IP-Webcam",
+  "stream_endpoints": ["/video", "/videostream.cgi", "/shot.jpg"],
+  "security_posture": "Smartphone Camera Emulation (HTTP Digest Auth / Port 8080)",
+  "cve_simulations": []
+}

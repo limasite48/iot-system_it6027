@@ -1,0 +1,28 @@
+{
+  "profile_id": "hardened_cam",
+  "name": "Hardened Enterprise IP Camera (Compliant)",
+  "vendor": "SecureCam Systems",
+  "model": "ProSafe-Cam",
+  "firmware": "4.2.1",
+  "serial": "SECURECAM2026",
+  "default_http_port": 8443,
+  "default_rtsp_port": 554,
+  "http_server_banner": "SecureCam-OS/4.2",
+  "auth_type": "digest",
+  "auth_realm": "SecureCam Enterprise",
+  "credentials": [
+    {"username": "admin", "password": "SecOps#2026!Camera"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": true,
+  "rtsp_auth_type": "digest",
+  "rtsp_realm": "SecureCam Enterprise",
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:DigitalSecurityCamera:1",
+  "ssdp_server_banner": "Linux/5.15 UPnP/1.0 SecureCam-OS/4.2",
+  "mdns_enabled": true,
+  "mdns_service_name": "SecureCam-Enterprise",
+  "stream_endpoints": ["/video", "/secure/stream"],
+  "security_posture": "Compliant (Strong unique password, no default credentials, patched firmware)",
+  "cve_simulations": []
+}

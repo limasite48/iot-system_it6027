@@ -8,7 +8,7 @@ from app.scanner_engine import SecurityScannerEngine
 
 @pytest.fixture(scope="module")
 def mock_camera_service():
-    """Start mock camera HTTP server on loopback port 8088 for test duration."""
+    """Start mock camera HTTP server on loopback port 8080 for test duration."""
     cam_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mock-object", "templates", "camera-mock", "camera_server.py"))
     spec = importlib.util.spec_from_file_location("mock_cam", cam_script)
     mock_cam = importlib.util.module_from_spec(spec)
@@ -20,6 +20,7 @@ def mock_camera_service():
     server_thread.start()
     time.sleep(0.3)
     yield test_port
+    server.shutdown()
     server.server_close()
 
 def test_full_device_audit_pipeline(mock_camera_service):

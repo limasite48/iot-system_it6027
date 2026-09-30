@@ -7,13 +7,24 @@
       "cpe:2.3:o:dlink:dcs-932l_firmware:*:*:*:*:*:*:*:*",
       "cpe:2.3:a:embedthis:goahead:*:*:*:*:*:*:*:*"
     ],
+    "version_start_including": "1.0.0",
     "version_end_including": "1.14.04",
     "affected_vendors": ["D-Link", "D-Link Systems", "D-Link Corporation", "embedthis"],
     "affected_products": ["DCS-930L", "DCS-932L", "DCS-933L", "DCS-5009L", "DCS-5020L", "goahead", "goahead-webs"],
     "affected_banners": ["GoAhead-Webs/2.5", "GoAhead-Webs"],
+    "required_open_ports": [80, 8080],
+    "required_service": "http",
     "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
     "severity": "CRITICAL",
     "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai", "Mozi"],
+    "cwe_id": "CWE-200",
     "description": "An issue was discovered in D-Link DCS-series IP camera firmware through 1.14.04. An unauthenticated attacker can query /common/info.cgi to obtain administrative passwords and network configuration in plaintext.",
     "remediation": "Update camera firmware to version 1.14.05 or higher. Isolate camera to a dedicated restricted VLAN and change default management passwords."
   },
@@ -23,15 +34,27 @@
     "cpe_uri": "cpe:2.3:o:xiongmai:h.264_dvr_firmware:*:*:*:*:*:*:*:*",
     "target_cpe_list": [
       "cpe:2.3:o:xiongmai:h.264_dvr_firmware:*:*:*:*:*:*:*:*",
-      "cpe:2.3:a:xiongmai:uc-httpd:*:*:*:*:*:*:*:*"
+      "cpe:2.3:a:xiongmai:uc-httpd:*:*:*:*:*:*:*:*",
+      "cpe:2.3:a:xiongmai:sofia_rtsp:*:*:*:*:*:*:*:*"
     ],
+    "version_start_including": "1.0.0",
     "version_end_including": "1.0.0",
     "affected_vendors": ["Xiongmai", "Sofia", "Hangzhou Xiongmai"],
     "affected_products": ["Xiongmai DVR", "H.264 DVR", "Sofia Video Server", "uc-httpd"],
     "affected_banners": ["uc-httpd", "uc-httpd 1.0.0", "Sofia RTSP"],
+    "required_open_ports": [80, 554],
+    "required_service": "rtsp",
     "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
     "severity": "CRITICAL",
     "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai", "Persirai"],
+    "cwe_id": "CWE-287",
     "description": "Multiple Xiongmai-based IP cameras and DVRs allow unauthenticated remote attackers to bypass RTSP stream authentication and execute arbitrary commands via undocumented JSON APIs on port 80/554.",
     "remediation": "Disable cloud P2P features, block incoming traffic on ports 23, 80, 554 from untrusted networks, and apply vendor firmware patches."
   },
@@ -43,13 +66,24 @@
       "cpe:2.3:h:tp-link:hs100:*:*:*:*:*:*:*:*",
       "cpe:2.3:h:tp-link:hs110:*:*:*:*:*:*:*:*"
     ],
+    "version_start_including": "1.0.0",
     "version_end_including": "1.1.0",
     "affected_vendors": ["TP-Link", "TP-Link Corporation"],
     "affected_products": ["HS100", "HS110", "Kasa Smart Plug"],
     "affected_banners": ["TP-LINK Smart Plug", "TP-Link HS100"],
+    "required_open_ports": [9999],
+    "required_service": "iot_control",
     "cvss_score": 8.8,
+    "cvss_v3": {
+      "score": 8.8,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "HIGH"
+    },
     "severity": "HIGH",
     "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-306",
     "description": "TP-Link Smart Plug HS100/HS110 devices listen on TCP port 9999 using a weak XOR autokey cipher with no authentication, allowing any device on the local network to control the relay switch or extract Wi-Fi configuration.",
     "remediation": "Segment smart plugs into an isolated IoT VLAN without lateral access to enterprise/workstation subnets."
   },
@@ -61,13 +95,24 @@
       "cpe:2.3:a:realtek:miniigd:*:*:*:*:*:*:*:*",
       "cpe:2.3:a:realtek:realtek_sdk:*:*:*:*:*:*:*:*"
     ],
+    "version_start_including": "1.0",
     "version_end_including": "1.0",
     "affected_vendors": ["Realtek", "D-Link", "Trendnet", "ZTE"],
     "affected_products": ["miniigd", "Realtek SDK", "RTL8196C"],
     "affected_banners": ["miniigd", "Portable SDK for UPnP", "UPnP/1.0"],
+    "required_open_ports": [52869, 52881, 1900],
+    "required_service": "upnp",
     "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
     "severity": "CRITICAL",
     "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai", "Satori"],
+    "cwe_id": "CWE-78",
     "description": "The miniigd SOAP service in Realtek SDK allows remote attackers to execute arbitrary code via crafted NewInternalClient requests to the UPnP service on port 52869/52881. This is a primary propagation vector for the Mirai botnet.",
     "remediation": "Disable UPnP on WAN/LAN interfaces and upgrade router/gateway firmware."
   },
@@ -77,15 +122,27 @@
     "cpe_uri": "cpe:2.3:h:hikvision:ds-2cd:*:*:*:*:*:*:*:*",
     "target_cpe_list": [
       "cpe:2.3:h:hikvision:ds-2cd:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:hikvision:ds-2cd_firmware:*:*:*:*:*:*:*:*",
       "cpe:2.3:a:hikvision:app-webs:*:*:*:*:*:*:*:*"
     ],
+    "version_start_including": "1.0.0",
     "version_end_including": "5.5.0",
     "affected_vendors": ["Hikvision", "Hikvision Digital Technology"],
     "affected_products": ["DS-2CD", "Hikvision IP Camera", "Network Camera"],
     "affected_banners": ["Hikvision", "App-webs"],
+    "required_open_ports": [80, 8080],
+    "required_service": "http",
     "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
     "severity": "CRITICAL",
     "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai", "Dark.IoT"],
+    "cwe_id": "CWE-78",
     "description": "A command injection vulnerability in the web server of some Hikvision cameras allows attackers to gain full administrative root access via specially crafted message packages sent to the device.",
     "remediation": "Apply the official Hikvision security firmware update and enforce network access control lists."
   },
@@ -95,15 +152,27 @@
     "cpe_uri": "cpe:2.3:h:dahua:dahua_dvr:*:*:*:*:*:*:*:*",
     "target_cpe_list": [
       "cpe:2.3:h:dahua:dahua_dvr:*:*:*:*:*:*:*:*",
-      "cpe:2.3:h:dahua:dahua_ipc:*:*:*:*:*:*:*:*"
+      "cpe:2.3:h:dahua:dahua_ipc:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:dahua:dahua_ipc_firmware:*:*:*:*:*:*:*:*"
     ],
+    "version_start_including": "1.0.0",
     "version_end_including": "2.400.0000.0",
     "affected_vendors": ["Dahua", "Zhejiang Dahua Technology"],
     "affected_products": ["Dahua DVR", "Dahua NVR", "Dahua IPC"],
     "affected_banners": ["Dahua RTSP Server", "Dahua-Webs", "DH-IPC"],
+    "required_open_ports": [23, 80, 37777],
+    "required_service": "http",
     "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
     "severity": "CRITICAL",
     "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai"],
+    "cwe_id": "CWE-798",
     "description": "Multiple Dahua DVR and IP Camera models contain hardcoded cryptographic credentials and hidden administrative accounts (e.g. 7ujMko0vizxv) accessible via Telnet or web interfaces.",
     "remediation": "Update Dahua firmware to remove the backdoor accounts and disable Telnet access."
   },
@@ -115,13 +184,24 @@
       "cpe:2.3:h:tbk:h.264_dvr:*:*:*:*:*:*:*:*",
       "cpe:2.3:h:tbk:dvr-4104:*:*:*:*:*:*:*:*"
     ],
-    "version_end_including": "1.0",
+    "version_start_including": "1.0.0",
+    "version_end_including": "1.0.0",
     "affected_vendors": ["TBK", "Novo", "CeNova", "QSee"],
     "affected_products": ["DVR-4104", "DVR-4216", "H.264 DVR"],
     "affected_banners": ["H.264 DVR", "DVR Login", "NET Surveillance System"],
+    "required_open_ports": [80, 8080],
+    "required_service": "http",
     "cvss_score": 9.8,
+    "cvss_v3": {
+      "score": 9.8,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "CRITICAL"
+    },
     "severity": "CRITICAL",
     "attack_vector": "NETWORK",
+    "cisa_kev": true,
+    "known_botnet_vector": ["Mirai"],
+    "cwe_id": "CWE-287",
     "description": "An authentication bypass vulnerability in multiple DVR devices allows remote attackers to obtain user credentials by crafting a Cookie: uid=admin HTTP header sent to /device.rsp.",
     "remediation": "Replace legacy DVR hardware or place behind a secure VPN gateway with zero direct network exposure."
   },
@@ -132,13 +212,24 @@
     "target_cpe_list": [
       "cpe:2.3:a:eclipse:mosquitto:*:*:*:*:*:*:*:*"
     ],
+    "version_start_including": "1.0.0",
     "version_end_including": "2.0.18",
     "affected_vendors": ["Generic IoT", "Eclipse", "Mosquitto"],
     "affected_products": ["Mosquitto MQTT", "MQTT Broker"],
     "affected_banners": ["MQTT", "1883"],
+    "required_open_ports": [1883],
+    "required_service": "mqtt",
     "cvss_score": 7.5,
+    "cvss_v3": {
+      "score": 7.5,
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "severity": "HIGH"
+    },
     "severity": "HIGH",
     "attack_vector": "NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-319",
     "description": "MQTT broker allows anonymous unauthenticated clients to subscribe to wildcard topics ('#') and publish spoofed sensor or control messages.",
     "remediation": "Require TLS encryption (port 8883) and enforce client certificate authentication or username/password authentication."
   }

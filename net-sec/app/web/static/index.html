@@ -550,13 +550,25 @@
           cveBadge = `<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1 w-fit"><i class="fa-solid fa-bug"></i> ${topCve} ${cveCount > 1 ? `(+${cveCount - 1})` : ''}</span>`;
         }
 
+        const devT = (window.deviceTraffic && window.deviceTraffic[d.ip]) || d.traffic;
+        const isCameraType = d.device_type === "IP Camera" || d.open_ports?.includes(8080) || d.open_ports?.includes(554);
         let devTraffic = '<span class="text-slate-500 text-xs">--</span>';
-        if (isOnline && (d.device_type === "IP Camera" || d.open_ports?.includes(8080))) {
-          const rate = window.currentRxRate || 'Active Stream';
-          devTraffic = `
-            <div class="text-xs font-mono text-cyan-300 font-bold flex items-center gap-1"><i class="fa-solid fa-video text-[10px]"></i> ${rate}</div>
-            <div class="text-[10px] text-slate-500">${window.currentTotalRx || 'Rx Streaming'}</div>
-          `;
+        if (isOnline) {
+          if (devT && (devT.rx_rate_kbps > 1.0 || devT.is_streaming)) {
+            const rate = devT.rx_rate_mbps > 0.1 ? `${devT.rx_rate_mbps} MB/s` : `${devT.rx_rate_kbps} KB/s`;
+            const total = `${devT.total_rx_mb || '0.0'} MB Rx`;
+            devTraffic = `
+              <div class="text-xs font-mono text-cyan-300 font-bold flex items-center gap-1"><i class="fa-solid fa-video text-[10px]"></i> ${rate}</div>
+              <div class="text-[10px] text-slate-500">${total}</div>
+            `;
+          } else if (isCameraType) {
+            devTraffic = `
+              <div class="text-xs font-mono text-slate-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Idle</div>
+              <div class="text-[10px] text-slate-600">0.0 KB/s</div>
+            `;
+          } else {
+            devTraffic = '<span class="text-slate-500 text-xs">Idle</span>';
+          }
         }
 
         return `
@@ -585,7 +597,7 @@
             <td class="px-4 py-3">
               ${openPortsBadges}
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3" data-device-ip="${d.ip}" data-device-online="${isOnline}" data-device-cam="${isCameraType}">
               ${devTraffic}
             </td>
             <td class="px-4 py-3">
@@ -1031,6 +1043,36 @@
       }
     }
 
+    function updateDeviceTrafficBadges() {
+      const cells = document.querySelectorAll('[data-device-ip]');
+      cells.forEach(el => {
+        const ip = el.getAttribute('data-device-ip');
+        const devT = window.deviceTraffic?.[ip];
+        const isOnline = el.getAttribute('data-device-online') === 'true';
+        const isCam = el.getAttribute('data-device-cam') === 'true';
+
+        let html = '<span class="text-slate-500 text-xs">--</span>';
+        if (isOnline) {
+          if (devT && (devT.rx_rate_kbps > 1.0 || devT.is_streaming)) {
+            const rate = devT.rx_rate_mbps > 0.1 ? `${devT.rx_rate_mbps} MB/s` : `${devT.rx_rate_kbps} KB/s`;
+            const total = `${devT.total_rx_mb || '0.0'} MB Rx`;
+            html = `
+              <div class="text-xs font-mono text-cyan-300 font-bold flex items-center gap-1"><i class="fa-solid fa-video text-[10px]"></i> ${rate}</div>
+              <div class="text-[10px] text-slate-500">${total}</div>
+            `;
+          } else if (isCam) {
+            html = `
+              <div class="text-xs font-mono text-slate-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Idle</div>
+              <div class="text-[10px] text-slate-600">0.0 KB/s</div>
+            `;
+          } else {
+            html = '<span class="text-slate-500 text-xs">Idle</span>';
+          }
+        }
+        el.innerHTML = html;
+      });
+    }
+
     async function loadTraffic() {
       try {
         const res = await fetch('/api/traffic');
@@ -1044,8 +1086,10 @@
           document.getElementById('trafficTotalRx').innerText = `Total: ${data.total_rx_mb} MB`;
           document.getElementById('trafficTotalTx').innerText = `Total: ${data.total_tx_mb} MB`;
           document.getElementById('trafficPackets').innerText = `${data.packets_rx_sec + data.packets_tx_sec} pkt/s`;
+          window.deviceTraffic = data.device_traffic || {};
           window.currentRxRate = rxRate;
           window.currentTotalRx = `${data.total_rx_mb} MB Rx`;
+          updateDeviceTrafficBadges();
         }
       } catch (e) {
         console.error("Traffic load error", e);

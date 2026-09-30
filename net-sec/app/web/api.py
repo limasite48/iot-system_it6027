@@ -39,9 +39,8 @@ SCANNER = SecurityScannerEngine()
 async def lifespan(app: FastAPI):
     # Start real-time presence & auto-discovery monitor
     SCANNER.start_presence_monitor(interval_seconds=4.0)
-    # Trigger initial discovery scan across active edge subnet
-    primary_cidr = get_primary_edge_cidr()
-    asyncio.create_task(SCANNER.execute_network_scan(primary_cidr))
+    # Trigger initial discovery scan across all authorized edge subnets (including mock testbed fleet)
+    asyncio.create_task(SCANNER.execute_network_scan("ALL"))
     yield
 
 app = FastAPI(

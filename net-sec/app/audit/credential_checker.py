@@ -190,8 +190,8 @@ def test_http_auth(ip: str, port: int, creds: List[Tuple[str, str]], timeout: fl
                                     "description": f"Publicly known default credential accepted on port {port}: {user}:{pwd}"
                                 }
 
-                            # 2. Fallback: try DigestAuth if Basic returned 401
-                            if not is_digest and auth_resp.status_code == 401:
+                            # 2. Fallback: only if WWW-Authenticate did not explicitly request Basic
+                            if not is_digest and "basic" not in auth_header.lower() and auth_resp.status_code == 401:
                                 auth_resp_digest = client.get(url, auth=httpx.DigestAuth(user, pwd), headers=headers)
                                 if auth_resp_digest.status_code in [200, 301, 302, 307]:
                                     return {

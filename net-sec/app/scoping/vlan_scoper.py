@@ -10,16 +10,31 @@ SUBNET_VLAN_MAP = {
     "192.168.137.0/24": {"vlan_id": 100, "name": "VLAN 100 - Physical Edge WLAN (Hotspot)"},
     "172.28.10.0/24":   {"vlan_id": 10,  "name": "VLAN 10 - Standard IoT Operational Subnet"},
     "172.28.99.0/24":   {"vlan_id": 99,  "name": "VLAN 99 - IoT Quarantine & Isolation Subnet"},
+    "127.0.0.0/24":     {"vlan_id": 10,  "name": "VLAN 10 - Local IoT Testbed Emulation"},
     "192.168.1.0/24":   {"vlan_id": 1,   "name": "VLAN 1 - Primary Office/Home LAN"}
 }
 
 def resolve_vlan_for_ip(ip_str: str) -> Dict[str, Any]:
-    """Map an IP address to its corresponding VLAN scope."""
+    """Map an IP address to its corresponding VLAN scope, supporting dynamic edge subnets."""
     try:
         ip_obj = ipaddress.ip_address(ip_str)
         for cidr, vlan_info in SUBNET_VLAN_MAP.items():
             if ip_obj in ipaddress.ip_network(cidr, strict=False):
                 return vlan_info
+
+        # Dynamic check across active detected network adapters
+        try:
+            from app.discovery.network_env import detect_active_subnets
+            for s in detect_active_subnets():
+                cidr = s.get("cidr")
+                if cidr and ip_obj in ipaddress.ip_network(cidr, strict=False):
+                    if s.get("is_hotspot"):
+                        return {"vlan_id": 100, "name": "VLAN 100 - Physical Edge WLAN (Hotspot)"}
+                    if s.get("is_edge"):
+                        return {"vlan_id": 10, "name": "VLAN 10 - Standard IoT Operational Subnet"}
+        except Exception:
+            pass
+
         # Default fallback
         network = ipaddress.ip_network(f"{ip_str}/24", strict=False)
         return {"vlan_id": 999, "name": f"VLAN Custom - Subnet {network.network_address}/24"}

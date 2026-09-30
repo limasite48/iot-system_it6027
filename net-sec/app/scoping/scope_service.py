@@ -43,8 +43,24 @@ class ScopeManager:
         self._audit_log: List[Dict[str, Any]] = []
 
     def get_authorized_scopes(self) -> List[Dict[str, Any]]:
-        """Return list of authorized CIDR boundaries."""
-        return list(self._scopes)
+        """Return list of authorized CIDR boundaries, incorporating dynamically active edge subnets."""
+        scopes = list(self._scopes)
+        existing_cidrs = {s["cidr"] for s in scopes}
+        try:
+            from app.discovery.network_env import detect_active_subnets
+            for s in detect_active_subnets():
+                cidr = s.get("cidr")
+                if cidr and s.get("is_edge") and cidr not in existing_cidrs:
+                    scopes.append({
+                        "cidr": cidr,
+                        "name": f"Dynamic Active Edge ({s.get('interface')})",
+                        "vlan_id": 100 if s.get("is_hotspot") else 10,
+                        "description": f"Dynamically detected active adapter {s.get('interface')}."
+                    })
+                    existing_cidrs.add(cidr)
+        except Exception:
+            pass
+        return scopes
 
     def add_scope(self, cidr: str, name: str, vlan_id: int = 0, description: str = ""):
         """Dynamically add an authorized audit range."""
@@ -100,7 +116,7 @@ class ScopeManager:
             return res
 
         # Check against authorized scopes
-        for auth in self._scopes:
+        for auth in self.get_authorized_scopes():
             auth_net = ipaddress.ip_network(auth["cidr"], strict=False)
             # Allow if target_net is equal to or a sub-network of the authorized network
             if target_net.subnet_of(auth_net):
@@ -139,10 +155,12 @@ class ScopeManager:
     def is_ip_in_scope(self, ip_str: str) -> bool:
         """Fast check for single IP."""
         try:
-            ip_obj = ipaddress.ip_address(ip_str)
-            if ip_obj.is_loopback or ip_obj.is_global or ip_obj.is_multicast:
+            if ip_str in ["127.0.0.1", "localhost"]:
                 return False
-            for auth in self._scopes:
+            ip_obj = ipaddress.ip_address(ip_str)
+            if ip_obj.is_global or ip_obj.is_multicast:
+                return False
+            for auth in self.get_authorized_scopes():
                 auth_net = ipaddress.ip_network(auth["cidr"], strict=False)
                 if ip_obj in auth_net:
                     return True

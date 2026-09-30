@@ -85,12 +85,15 @@ class AuditorTriageManager:
                        exploitability: Optional[str] = None, ssvc_action: Optional[str] = None) -> FindingRecord:
         """Register or update an audit finding in a thread-safe manner."""
         with self._lock:
-            key_id = cve_id or rule_id or f"port_{port}" if port else title[:20]
+            key_id = cve_id or rule_id or (f"port_{port}" if port is not None else title[:20])
             fp_key = self._generate_fingerprint_key(target_ip, finding_type, key_id)
 
             # Check if this exact finding already exists
+            def _get_f_key_id(f):
+                return f.cve_id or f.rule_id or (f"port_{f.port}" if f.port is not None else f.title[:20])
+
             existing = next((f for f in self._findings.values() 
-                             if self._generate_fingerprint_key(f.target_ip, f.finding_type, f.cve_id or f.rule_id or f"port_{f.port}" or f.title[:20]) == fp_key), None)
+                             if self._generate_fingerprint_key(f.target_ip, f.finding_type, _get_f_key_id(f)) == fp_key), None)
             if existing:
                 # Update details but preserve existing triage status (APPROVED or REJECTED)
                 existing.details = details

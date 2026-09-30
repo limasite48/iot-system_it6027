@@ -53,7 +53,7 @@ def match_cves_for_device(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         is_matched = False
         matched_cpe_uri = entry.get("cpe_uri", "")
 
-        # A. CPE 2.3 & Semantic Version Matching
+        version_out_of_bounds = False
         target_cpe_list = entry.get("target_cpe_list", [entry.get("cpe_uri", "")])
         for cand in cpe_candidates:
             cand_cpe = cand.get("cpe_uri", "")
@@ -72,6 +72,8 @@ def match_cves_for_device(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
                             is_matched = True
                             matched_cpe_uri = cand_cpe
                             break
+                        else:
+                            version_out_of_bounds = True
                     else:
                         is_matched = True
                         matched_cpe_uri = cand_cpe
@@ -79,15 +81,15 @@ def match_cves_for_device(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
             if is_matched:
                 break
 
-        # B. Fallback 1: Direct Banner pattern matching
-        if not is_matched:
+        # B. Fallback 1: Direct Banner pattern matching (only if version not confirmed out-of-bounds)
+        if not is_matched and not version_out_of_bounds:
             for banner_pattern in entry.get("affected_banners", []):
                 if banner_pattern.lower() in combined_text:
                     is_matched = True
                     break
 
-        # C. Fallback 2: Product and Vendor co-occurrence matching
-        if not is_matched:
+        # C. Fallback 2: Product and Vendor co-occurrence matching (only if version not confirmed out-of-bounds)
+        if not is_matched and not version_out_of_bounds:
             vendor_match = any(v.lower() in combined_text for v in entry.get("affected_vendors", []))
             product_match = any(p.lower() in combined_text for p in entry.get("affected_products", []))
             if vendor_match and product_match:

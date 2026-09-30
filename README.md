@@ -2,8 +2,8 @@
 
 **Course**: IT6027 - Cybersecurity Policy and Governance  
 **Project Topic**: System for detecting insecure IoT devices within a network  
-**Version**: `v0.2.0`  
-**Test Suite**: **88 Passing Automated Tests** (`python -m pytest net-sec/tests mock-object/tests -v`)
+**Version**: `v0.2.1`  
+**Test Suite**: **93 Passing Automated Tests** (`python -m pytest mock-object/tests net-sec/tests -v`)
 
 ---
 
@@ -243,7 +243,7 @@ The web dashboard at `http://localhost:8000` features a clean **vertical sidebar
 
 ## 6. Automated Test Suite
 
-The test suite contains **84 comprehensive tests** with 100% pass rate across all modules:
+The test suite contains **97 comprehensive tests** with 100% pass rate across all modules:
 
 ```powershell
 # Run the complete test suite from repository root:
@@ -251,7 +251,7 @@ python -m pytest mock-object/tests net-sec/tests -v
 ```
 
 ```text
-======================= 84 passed, 1 warning in 32.02s =======================
+======================= 97 passed, 1 warning in 42.72s =======================
 mock-object/tests/test_camera_mock.py ........                           [  9%]
 net-sec/tests/test_api_extensions.py .......                             [ 17%]
 net-sec/tests/test_bugfixes.py ...........                               [ 30%]
@@ -280,6 +280,7 @@ net-sec/tests/test_vlan_scoper.py .....                                  [100%]
 - **`net-sec/tests/test_cve_matcher.py` (4 tests)**: Tests multi-feed CVE database lookups and CVSS v3.1 scoring.
 - **`net-sec/tests/test_vlan_scoper.py` (5 tests)**: Tests subnet-to-VLAN resolution and dynamic quarantine isolation triggers.
 - **`net-sec/tests/test_bugfixes.py` (11 tests)**: Ensures resilience against ghost ARP entries, WAN subnet leakage, and form-login false positives.
-- **`net-sec/tests/test_enhancements.py` (3 tests)**: Verifies presence monitoring and bandwidth metering snapshots.
+- **`net-sec/tests/test_audit_v021_fixes.py` (5 tests)**: Verifies scope permission for mock testbed nodes, VLAN 10 resolution, CVE matcher version out-of-bounds rejection, credential checker Basic/Digest auth optimization, and loopback socket presence detection.
+- **`net-sec/tests/test_traffic_and_audit_fixes.py` (4 tests)**: Verifies isolated per-device traffic attribution without cross-device leakage between hotspot and mock loopback nodes, auditor triage deduplication operator precedence fix for CVE/policy findings, dynamic VLAN edge subnet mapping, and unique virtual MAC generation.
 - **`net-sec/tests/test_api_extensions.py` (7 tests)**: Tests REST API endpoints for scans, triage workflows, scope verification, and webhook notifications.
 - **`net-sec/tests/test_integration.py` (1 test)**: End-to-end simulation from discovery through classification, CPE normalization, CVE correlation, credential checking, and quarantine recommendation.

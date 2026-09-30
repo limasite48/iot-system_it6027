@@ -94,38 +94,54 @@ class SecurityScannerEngine:
 
         open_ports = await scan_host_ports(ip, ports=sorted(list(candidate_ports)))
         banners = await asyncio.to_thread(inspect_all_banners, ip, open_ports)
+        if ip.startswith("127."):
+            if not mac or mac == "02:00:7D:00:00:01":
+                last_oct = int(ip.split(".")[-1])
+                mac = f"02:00:7D:00:00:{last_oct:02X}"
         vendor = resolve_mac_vendor(mac) if mac else "Unknown"
+        if ip.startswith("127.") and vendor == "Unknown":
+            vendor = "Virtual IoT Testbed Node"
+
+        # Register device with traffic meter for isolated telemetry tracking
+        GLOBAL_TRAFFIC_METER.register_device(ip)
 
         # Extract UPnP metadata if available
         upnp_meta = upnp_info.get("xml_meta", {}) if upnp_info else {}
         if not upnp_meta:
-            # Fallback unicast probe if HTTP port is open (e.g. multicast SSDP filtered on bridge)
-            try:
-                from app.discovery.upnp_scanner import parse_upnp_xml
-                import httpx
-                for p in [80, 8080, 8081, 9999]:
-                    if p in open_ports:
-                        for endpoint in ["/desc.xml", "/setup.xml"]:
-                            try:
-                                resp = httpx.get(f"http://{ip}:{p}{endpoint}", timeout=1.0)
-                                if resp.status_code == 200 and "<root" in resp.text:
-                                    upnp_meta = parse_upnp_xml(resp.text)
-                                    if upnp_meta:
-                                        upnp_info = {"ip": ip, "xml_meta": upnp_meta, "port": p}
-                                        break
-                            except Exception:
-                                pass
-                        if upnp_meta:
-                            break
-            except Exception:
-                pass
+            # Fallback unicast probe if HTTP port is open (non-blocking in worker thread)
+            def _probe_upnp(ip_addr, open_p):
+                try:
+                    from app.discovery.upnp_scanner import parse_upnp_xml
+                    import httpx
+                    for p in [80, 8080, 8081, 9999]:
+                        if p in open_p:
+                            for endpoint in ["/desc.xml", "/setup.xml"]:
+                                try:
+                                    resp = httpx.get(f"http://{ip_addr}:{p}{endpoint}", timeout=0.4)
+                                    if resp.status_code == 200 and "<root" in resp.text:
+                                        m = parse_upnp_xml(resp.text)
+                                        if m:
+                                            return m, {"ip": ip_addr, "xml_meta": m, "port": p}
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+                return {}, None
+
+            upnp_meta, fallback_info = await asyncio.to_thread(_probe_upnp, ip, open_ports)
+            if fallback_info:
+                upnp_info = fallback_info
 
         model = upnp_meta.get("model_name", "")
         if not vendor or vendor == "Unknown":
             vendor = upnp_meta.get("manufacturer", "Unknown")
 
-        # Resolve hostname via reverse DNS and Hotspot clients
-        rev_hostname = resolve_reverse_hostname(ip)
+        # Resolve hostname via reverse DNS (non-blocking, skipped on loopback) and Hotspot clients
+        if ip.startswith("127."):
+            rev_hostname = None
+        else:
+            rev_hostname = await asyncio.to_thread(resolve_reverse_hostname, ip)
+
         hotspot_clients = get_hotspot_active_clients()
         matched_client = next((c for c in hotspot_clients if c["mac"] == mac), None)
         if matched_client and matched_client.get("hostname"):
@@ -226,6 +242,9 @@ class SecurityScannerEngine:
             "scoping_policy": scoping_eval,
             "policy_compliance": policy_eval,
             "risk_level": scoping_eval["risk_level"],
+            "traffic": GLOBAL_TRAFFIC_METER.get_snapshot().get("device_traffic", {}).get(ip, {
+                "ip": ip, "rx_rate_kbps": 0.0, "tx_rate_kbps": 0.0, "rx_rate_mbps": 0.0, "tx_rate_mbps": 0.0, "total_rx_mb": 0.0, "total_tx_mb": 0.0, "is_streaming": False
+            }),
             "last_audited": datetime.now().isoformat()
         }
 
@@ -305,6 +324,10 @@ class SecurityScannerEngine:
                     "details": cve["description"]
                 })
 
+        # Progressively update inventory for immediate real-time dashboard reactivity
+        with self._lock:
+            self.inventory[ip] = full_record
+
         return full_record
 
     async def execute_network_scan(self, target_cidr: str = None, timeout_discovery: float = 2.5) -> List[Dict[str, Any]]:
@@ -382,14 +405,16 @@ class SecurityScannerEngine:
         host_ips = get_host_ips()
 
         from app.discovery.port_scanner import check_port
-        probe_ports = [80, 8080, 23, 554, 9999, 5000, 1883, 8081]
+        probe_ports = [80, 8080, 554, 23, 1883, 9999]
+        probe_sem = asyncio.Semaphore(40)
 
-        async def probe_ip(ip_str):
-            for prt in probe_ports:
-                p, is_open = await check_port(ip_str, prt, timeout=0.15)
-                if is_open:
+        async def probe_ip_fast(ip_str):
+            async with probe_sem:
+                tasks = [check_port(ip_str, prt, timeout=0.08) for prt in probe_ports]
+                results = await asyncio.gather(*tasks)
+                if any(is_open for _, is_open in results):
                     return ip_str
-            return None
+                return None
 
         network = None
         if is_all_mode:
@@ -421,7 +446,7 @@ class SecurityScannerEngine:
                 except Exception:
                     pass
 
-            sweep_tasks = [probe_ip(h) for h in candidate_hosts if h not in host_ips]
+            sweep_tasks = [probe_ip_fast(h) for h in candidate_hosts if h not in host_ips]
             sweep_results = await asyncio.gather(*sweep_tasks)
             active_from_sweep = {res for res in sweep_results if res}
             target_ips.update(active_from_sweep)
@@ -435,7 +460,7 @@ class SecurityScannerEngine:
                 network = ipaddress.ip_network(target_cidr, strict=False)
                 if network.num_addresses <= 256:
                     candidate_hosts = [str(h) for h in network.hosts() if str(h) not in host_ips and is_edge_ip(str(h))]
-                    sweep_tasks = [probe_ip(h) for h in candidate_hosts]
+                    sweep_tasks = [probe_ip_fast(h) for h in candidate_hosts]
                     sweep_results = await asyncio.gather(*sweep_tasks)
                     active_from_sweep = {res for res in sweep_results if res}
                     target_ips.update(active_from_sweep)
@@ -580,6 +605,11 @@ class SecurityScannerEngine:
             except Exception:
                 pass
 
+        # Loopback IPs: The OS kernel always answers ping on 127.x.x.x even if no service is running.
+        # Thus, if all port probes failed on 127.x.x.x, the mock service is NOT running.
+        if ip.startswith("127."):
+            return False
+
         # Layer 4: ICMP Ping fallback
         param = "-n" if platform.system().lower() == "windows" else "-c"
         timeout_param = "-w" if platform.system().lower() == "windows" else "-W"
@@ -692,6 +722,50 @@ class SecurityScannerEngine:
                             "device_type": new_dev.get("device_type", "Unknown"),
                             "title": f"New IoT Device Joined: {ip}",
                             "details": f"Discovered new device {ip} ({new_dev['device_type']} - {new_dev['vendor']}) on edge subnet."
+                        })
+                except Exception:
+                    pass
+
+        # Check local testbed loopback mock fleet (127.0.0.2 to 127.0.0.10)
+        # Note: Loopback traffic does not appear in ARP tables
+        mock_candidates = [f"127.0.0.{i}" for i in range(2, 11)]
+        for mock_ip in mock_candidates:
+            with self._lock:
+                already_known = mock_ip in self.inventory
+
+            if mock_ip in host_ips or already_known:
+                continue
+
+            # Quick probe on common mock ports: 80, 8080, 8081, 8443, 554
+            is_mock_up = False
+            for p in [80, 8080, 8081, 8443, 554]:
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(0.02)
+                    res = s.connect_ex((mock_ip, p))
+                    s.close()
+                    if res == 0:
+                        is_mock_up = True
+                        break
+                except Exception:
+                    pass
+
+            if is_mock_up:
+                try:
+                    mock_oct = int(mock_ip.split(".")[-1])
+                    mock_mac = f"02:00:7D:00:00:{mock_oct:02X}"
+                    new_dev = asyncio.run(self.scan_single_device(mock_ip, mock_mac))
+                    if new_dev["open_ports"] or new_dev.get("banners"):
+                        new_dev["is_online"] = True
+                        with self._lock:
+                            self.inventory[mock_ip] = new_dev
+                        self.record_alert({
+                            "timestamp": datetime.now().isoformat(),
+                            "severity": "INFO",
+                            "device_ip": mock_ip,
+                            "device_type": new_dev.get("device_type", "IP Camera"),
+                            "title": f"Mock IoT Device Joined: {mock_ip}",
+                            "details": f"Discovered mock testbed node {mock_ip} ({new_dev['device_type']} - {new_dev['vendor']}) on local loopback."
                         })
                 except Exception:
                     pass

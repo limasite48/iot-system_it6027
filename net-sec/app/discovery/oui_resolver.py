@@ -95,7 +95,8 @@ OUI_DATABASE = {
     "90:09:DF": "Xiaomi Communications",
     "A8:A1:59": "Chongqing Fugui Electronics",
     "18:C0:4D": "Xiaomi Communications",
-    "00:15:5D": "Microsoft Hyper-V Virtual NIC"
+    "00:15:5D": "Microsoft Hyper-V Virtual NIC",
+    "02:00:7D": "Virtual IoT Testbed Node"
 }
 
 def resolve_mac_vendor(mac_address: str) -> str:

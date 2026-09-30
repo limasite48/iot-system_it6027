@@ -58,9 +58,28 @@ def is_sensitive_iot_service(port: int, body_text: str, content_type: str = "") 
     if any(dvr in text_lower for dvr in ["uc-httpd", "xiongmai", "busybox", "net surveillance system", "h.264 dvr"]):
         return True
 
-    # 4. Standard camera / plug ports with active streaming/control content
-    if port in [8080, 8081, 8089, 8888, 9999]:
-        if any(term in text_lower for term in ["stream", "camera", "video", "control", "status", "switch", "device"]):
+    # 4. Smart TV / Media Player unauthenticated remote control endpoints
+    if any(tv in text_lower for tv in [
+        "smarttv", "smart tv", "tizen", "webos", "media receiver", "media renderer", "un55ru"
+    ]):
+        return True
+
+    # 5. Smart Climate / HVAC / Air Conditioner / Thermostat control interfaces
+    if any(hvac in text_lower for hvac in [
+        "air conditioner", "aircon", "climate controller", "stemp=", "shum=",
+        "thermostat", "tstat", "ct50", "ct80", "target temperature"
+    ]):
+        return True
+
+    # 6. Smart Fan / Purifier / Appliance actuators
+    if any(appliance in text_lower for appliance in [
+        "smart fan", "air purifier", "oscillating", '"speed":', '"fan":'
+    ]):
+        return True
+
+    # 7. Standard camera / appliance ports with active streaming/control content
+    if port in [80, 3000, 3001, 8001, 8002, 8080, 8081, 8089, 8888, 9999]:
+        if any(term in text_lower for term in ["stream", "camera", "video", "control", "status", "switch", "device", "aircon", "thermostat", "tstat", "fan", "tv"]):
             return True
 
     return False

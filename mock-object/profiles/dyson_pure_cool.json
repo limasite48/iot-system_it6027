@@ -1,0 +1,27 @@
+{
+  "profile_id": "dyson_pure_cool",
+  "name": "Dyson Pure Cool Purifying Fan (Compliant)",
+  "vendor": "Dyson Ltd",
+  "model": "Pure Cool TP04",
+  "firmware": "2.1.0",
+  "serial": "DYSONPUR2026COOL",
+  "device_category": "Smart Fan / Air Purifier",
+  "default_http_port": 8443,
+  "default_rtsp_port": null,
+  "http_server_banner": "Dyson-Link-OS/2.1",
+  "auth_type": "digest",
+  "auth_realm": "Dyson Pure Cool",
+  "credentials": [
+    {"username": "admin", "password": "Dyson#PureAir2026!"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": false,
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:Fan:1",
+  "ssdp_server_banner": "Linux/4.14 UPnP/1.0 Dyson-Link-OS/2.1",
+  "mdns_enabled": true,
+  "mdns_service_name": "Dyson-Pure-Cool-Fan",
+  "stream_endpoints": ["/api/v1/fan/environment"],
+  "security_posture": "Compliant (Unique factory key, authenticated API, no default passwords)",
+  "cve_simulations": []
+}

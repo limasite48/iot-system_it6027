@@ -33,7 +33,30 @@ VENDOR_MAP = {
     "ip webcam project": "ip_webcam_project",
     "mobile device (ip webcam)": "ip_webcam_project",
     "ip webcam": "ip_webcam_project",
-    "pavel khlebovich": "pas"
+    "pavel khlebovich": "pas",
+    "samsung": "samsung",
+    "samsung electronics": "samsung",
+    "lg": "lg",
+    "lg electronics": "lg",
+    "sony": "sony",
+    "sony corporation": "sony",
+    "daikin": "daikin",
+    "daikin industries": "daikin",
+    "gree": "gree",
+    "gree electric appliances": "gree",
+    "midea": "midea",
+    "dyson": "dyson",
+    "xiaomi": "xiaomi",
+    "xiaomi communications": "xiaomi",
+    "radio thermostat": "radiothermostat",
+    "radiothermostat": "radiothermostat",
+    "radio thermostat company of america": "radiothermostat",
+    "nest": "nest",
+    "nest labs": "nest",
+    "google nest": "nest",
+    "tuya": "tuya",
+    "tuya inc": "tuya",
+    "tuya global": "tuya"
 }
 
 PRODUCT_MAP = {
@@ -44,12 +67,35 @@ PRODUCT_MAP = {
     "ip_webcam_server": "ip_webcam",
     "ip webcam server": "ip_webcam",
     "esp-idf": "esp-idf",
-    "esp_http_server": "esp-idf"
+    "esp_http_server": "esp-idf",
+    "tizen smart tv": "tizen_smart_tv",
+    "un55ru7100": "tizen_smart_tv",
+    "un55ru7100 tizen smart tv": "tizen_smart_tv",
+    "tizen": "tizen",
+    "webos": "webos",
+    "webos tv": "webos",
+    "oled55c9": "webos_smart_tv",
+    "brp069": "brp069",
+    "brp069a41": "brp069",
+    "brp069a41 inverter ac": "brp069",
+    "ct50": "ct50",
+    "ct50 7-day programmable": "ct50",
+    "ct80": "ct80",
+    "mi smart standing fan": "mi_smart_standing_fan",
+    "mi smart standing fan 2": "mi_smart_standing_fan",
+    "smart fan": "mi_smart_standing_fan",
+    "smart air conditioner": "smart_air_conditioner",
+    "pure cool": "pure_cool",
+    "pure cool link": "pure_cool",
+    "learning thermostat": "learning_thermostat",
+    "bravia": "bravia",
+    "bravia 4k": "bravia"
 }
 
 APPLICATION_NAMES = {
     "goahead", "goahead-webs", "uc-httpd", "miniigd", "mosquitto",
-    "busybox", "lighttpd", "boa", "app-webs", "sofia", "ip_webcam", "esp_http_server"
+    "busybox", "lighttpd", "boa", "app-webs", "sofia", "ip_webcam", "esp_http_server",
+    "samsung-tizen-tv", "lg-webos", "daikin-http-server", "daikin-airbase"
 }
 
 def clean_identifier(val: str) -> str:

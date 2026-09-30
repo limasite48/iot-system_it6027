@@ -5,6 +5,7 @@
   "model": "DCS-932L",
   "firmware": "1.0.1",
   "serial": "DLINK932L00123",
+  "device_category": "IP Camera",
   "default_http_port": 8080,
   "default_rtsp_port": 554,
   "http_server_banner": "GoAhead-Webs/2.5",

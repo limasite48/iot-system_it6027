@@ -15,7 +15,11 @@ COMMON_IOT_PORTS = [
     443,   # HTTPS
     554,   # RTSP (IP Cameras, video feeds)
     1883,  # MQTT (IoT telemetry)
+    3000,  # LG webOS TV / Smart Home Control
+    3001,  # LG webOS TV Alt
     5000,  # UPnP / IoT Gateway
+    8001,  # Samsung Tizen TV REST API
+    8002,  # Samsung Tizen TV Secure REST API
     8080,  # HTTP Alt (IP Webcam default)
     8081,  # HTTP Alt (Camera secondary stream)
     8089,  # HTTP Alt

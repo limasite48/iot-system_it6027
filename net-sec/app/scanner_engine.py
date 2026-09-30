@@ -113,17 +113,19 @@ class SecurityScannerEngine:
                 try:
                     from app.discovery.upnp_scanner import parse_upnp_xml
                     import httpx
-                    for p in [80, 8080, 8081, 9999]:
+                    for p in [80, 3000, 5000, 8001, 8080, 8081, 8443, 9999]:
                         if p in open_p:
-                            for endpoint in ["/desc.xml", "/setup.xml"]:
-                                try:
-                                    resp = httpx.get(f"http://{ip_addr}:{p}{endpoint}", timeout=0.4)
-                                    if resp.status_code == 200 and "<root" in resp.text:
-                                        m = parse_upnp_xml(resp.text)
-                                        if m:
-                                            return m, {"ip": ip_addr, "xml_meta": m, "port": p}
-                                except Exception:
-                                    pass
+                            schemes = ["https", "http"] if p in [443, 8443] else ["http", "https"]
+                            for scheme in schemes:
+                                for endpoint in ["/desc.xml", "/setup.xml"]:
+                                    try:
+                                        resp = httpx.get(f"{scheme}://{ip_addr}:{p}{endpoint}", verify=False, timeout=0.4)
+                                        if resp.status_code == 200 and "<root" in resp.text:
+                                            m = parse_upnp_xml(resp.text)
+                                            if m:
+                                                return m, {"ip": ip_addr, "xml_meta": m, "port": p}
+                                    except Exception:
+                                        pass
                 except Exception:
                     pass
                 return {}, None
@@ -133,8 +135,9 @@ class SecurityScannerEngine:
                 upnp_info = fallback_info
 
         model = upnp_meta.get("model_name", "")
-        if not vendor or vendor == "Unknown":
-            vendor = upnp_meta.get("manufacturer", "Unknown")
+        mfr = upnp_meta.get("manufacturer")
+        if mfr and mfr != "Unknown" and (not vendor or vendor in ["Unknown", "Virtual IoT Testbed Node"]):
+            vendor = mfr
 
         # Resolve hostname via reverse DNS (non-blocking, skipped on loopback) and Hotspot clients
         if ip.startswith("127."):

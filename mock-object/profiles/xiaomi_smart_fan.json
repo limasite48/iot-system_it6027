@@ -1,0 +1,28 @@
+{
+  "profile_id": "xiaomi_smart_fan",
+  "name": "Xiaomi Mi Smart Standing Fan 2",
+  "vendor": "Xiaomi Communications",
+  "model": "Mi Smart Fan 2",
+  "firmware": "1.0.4",
+  "serial": "MIFAN2026STAND",
+  "device_category": "Smart Fan / Air Purifier",
+  "default_http_port": 8080,
+  "default_rtsp_port": null,
+  "http_server_banner": "Mi-Smart-Fan-OS/1.0",
+  "auth_type": "basic",
+  "auth_realm": "Mi Smart Fan",
+  "credentials": [
+    {"username": "admin", "password": "admin"},
+    {"username": "admin", "password": "123456"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": false,
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:Fan:1",
+  "ssdp_server_banner": "Linux/3.18 UPnP/1.0 Mi-Smart-Fan/1.0",
+  "mdns_enabled": true,
+  "mdns_service_name": "Mi-Smart-Standing-Fan",
+  "stream_endpoints": ["/api/fan/status", "/api/fan/speed"],
+  "security_posture": "Vulnerable (Default Credentials & Replayable Local Token)",
+  "cve_simulations": ["CVE-2021-31560"]
+}

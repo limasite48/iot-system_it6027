@@ -27,12 +27,36 @@ if ENGINE_DIR not in sys.path:
 from camera_server import CameraServer, load_profile
 
 AVAILABLE_PROFILES = [
+    # 1. Vulnerable IP Camera (Default Credentials & Critical CVE-2020-25078)
     "dlink_dcs932l",
+    # 2. Safety Smart TV (Sony BRAVIA 4K, TLS, Compliant Baseline, 0 CVEs)
+    "hardened_sony_tv",
+    # 3. Vulnerable Smart AC (Daikin Inverter AC, Unauthenticated REST Control & CVE-2021-38144)
+    "daikin_smart_ac",
+    # 4. Safety IP Camera (ProSafe Enterprise Camera, Unique Credentials, Compliant Baseline, 0 CVEs)
+    "hardened_cam",
+    # 5. Vulnerable Smart TV (Samsung Tizen TV, Remote Control API CVE-2019-12297)
+    "samsung_tizen_tv",
+    # 6. Safety Smart Fan (Dyson Pure Cool Link, Unique Strong Credentials, Compliant Baseline)
+    "dyson_pure_cool",
+    # 7. Vulnerable Smart Thermostat (Radio Thermostat CT50, Unauthenticated Temperature Override)
+    "radio_thermostat_ct50",
+    # 8. Safety Smart Thermostat (Google Nest Learning Thermostat, TLS & Compliant Baseline)
+    "nest_smart_thermostat",
+    # 9. Vulnerable Smart TV (LG webOS OLED TV, Auth Bypass & RCE CVE-2023-6317 / 6318)
+    "lg_webos_tv",
+    # 10. Safety Smart AC (Gree Inverter AC, Patched Firmware 3.5.2, Compliant Baseline)
+    "hardened_gree_ac",
+    # 11. Vulnerable Smart Fan (Xiaomi Mi Smart Standing Fan, Default Credentials & Token Replay)
+    "xiaomi_smart_fan",
+    # 12. Vulnerable IP Camera (Hikvision DS-2CD, App-webs Digest Auth & Critical CVE-2021-36260)
     "hikvision_ds2cd",
+    # 13. Vulnerable IP Camera (Dahua DH-IPC, Backdoor Credential & Critical CVE-2016-10372)
     "dahua_ipc",
+    # 14. Vulnerable IP Camera (Generic Unshielded Open Access Video Stream - ETSI Violation)
     "open_access_cam",
-    "ip_webcam",
-    "hardened_cam"
+    # 15. Vulnerable Mobile Sensor (Android IP Webcam Sensor, Frame Disclosure CVE-2024-27518)
+    "ip_webcam"
 ]
 
 def get_available_profiles_info() -> List[Dict[str, Any]]:
@@ -70,9 +94,9 @@ def load_state() -> Dict[str, Any]:
     return {"processes": []}
 
 def start_fleet(count: int = 4, mixed: bool = True, use_loopback_ips: bool = True, base_http: int = 8081, base_rtsp: int = 8554):
-    """Launch multiple camera mock instances in background subprocesses."""
+    """Launch multiple IoT mock instances in background subprocesses with balanced security postures."""
     print("=" * 70)
-    print(f"      Launching Camera Fleet ({count} instances)")
+    print(f"      Launching IoT Device Fleet ({count} instances)")
     print("=" * 70)
 
     state = load_state()
@@ -87,21 +111,24 @@ def start_fleet(count: int = 4, mixed: bool = True, use_loopback_ips: bool = Tru
 
         if use_loopback_ips:
             bind_ip = f"127.0.0.{2 + i}"
-            http_p = prof_data.get("default_http_port", base_http + i)
-            rtsp_p = prof_data.get("default_rtsp_port", base_rtsp + i)
+            http_p = prof_data.get("default_http_port") or (base_http + i)
+            rtsp_p = prof_data.get("default_rtsp_port")
+            if rtsp_p is None and prof_data.get("rtsp_enabled", False):
+                rtsp_p = base_rtsp + i
         else:
             bind_ip = "0.0.0.0"
             http_p = base_http + i
-            rtsp_p = base_rtsp + i
+            rtsp_p = (base_rtsp + i) if prof_data.get("rtsp_enabled", False) else None
 
         cmd = [
             sys.executable,
             camera_runner,
             "--profile", prof_name,
             "--ip", bind_ip,
-            "--http-port", str(http_p),
-            "--rtsp-port", str(rtsp_p)
+            "--http-port", str(http_p)
         ]
+        if rtsp_p is not None:
+            cmd.extend(["--rtsp-port", str(rtsp_p)])
 
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         active_procs.append({
@@ -109,16 +136,17 @@ def start_fleet(count: int = 4, mixed: bool = True, use_loopback_ips: bool = Tru
             "profile": prof_name,
             "ip": bind_ip,
             "http_port": http_p,
-            "rtsp_port": rtsp_p,
+            "rtsp_port": rtsp_p if rtsp_p is not None else "Disabled",
             "start_time": time.strftime("%Y-%m-%dT%H:%M:%S")
         })
-        print(f"  [+] Spawned Node #{i+1}: {prof_name} on {bind_ip}:{http_p} / RTSP:{rtsp_p} (PID: {proc.pid})")
+        rtsp_label = f"RTSP:{rtsp_p}" if rtsp_p is not None else "RTSP:Disabled"
+        print(f"  [+] Spawned Node #{i+1}: {prof_name} on {bind_ip}:{http_p} / {rtsp_label} (PID: {proc.pid})")
         time.sleep(0.3)
 
     state["processes"] = active_procs
     save_state(state)
     print("-" * 70)
-    print(f"[+] Successfully deployed {count} camera mock nodes.")
+    print(f"[+] Successfully deployed {count} IoT mock nodes.")
     print("    Run 'python mock-object/fleet_manager.py list' to view status.")
     print("    Run 'python mock-object/fleet_manager.py stop' to terminate all nodes.\n")
     return active_procs
@@ -223,9 +251,9 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Fleet commands")
 
     # start-fleet
-    sp_start = subparsers.add_parser("start-fleet", help="Start N camera mock instances")
-    sp_start.add_argument("--count", type=int, default=3, help="Number of cameras to launch")
-    sp_start.add_argument("--mixed", action="store_true", default=True, help="Use diverse camera profiles")
+    sp_start = subparsers.add_parser("start-fleet", help="Start N IoT device mock instances")
+    sp_start.add_argument("--count", "--devices", "--device", dest="count", type=int, default=4, help="Number of IoT devices to launch")
+    sp_start.add_argument("--mixed", action="store_true", default=True, help="Use diverse IoT device profiles")
     sp_start.add_argument("--base-http", type=int, default=8080, help="Base HTTP port (default: 8080)")
     sp_start.add_argument("--base-rtsp", type=int, default=8554, help="Base RTSP port (default: 8554)")
 

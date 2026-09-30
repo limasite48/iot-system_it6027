@@ -5,6 +5,7 @@
   "model": "DS-2CD",
   "firmware": "5.5.0",
   "serial": "HIKDS2CD2026",
+  "device_category": "IP Camera",
   "default_http_port": 80,
   "default_rtsp_port": 554,
   "http_server_banner": "App-webs (Hikvision DS-2CD)",

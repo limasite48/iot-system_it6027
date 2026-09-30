@@ -3,7 +3,7 @@
 **Course**: IT6027 - Cybersecurity Policy and Governance  
 **Project Topic**: System for detecting insecure IoT devices within a network  
 **Version**: `v0.2.1`  
-**Test Suite**: **93 Passing Automated Tests** (`python -m pytest mock-object/tests net-sec/tests -v`)
+**Test Suite**: **113 Passing Automated Tests** (`python -m pytest mock-object/tests net-sec/tests -v`)
 
 ---
 
@@ -40,13 +40,22 @@ iot-system/
 │   ├── docker-compose.template.yml        # Multi-VLAN Compose template for isolated testing
 │   ├── engine/                            # Modular camera simulation engine
 │   │   └── camera_server.py               # Multi-protocol server (HTTP Basic/Digest, RTSP 554, SSDP, mDNS)
-│   ├── profiles/                          # Declarative JSON camera profiles
-│   │   ├── dlink_dcs932l.json             # GoAhead-Webs/2.5, Basic Auth, CVE-2020-25078
-│   │   ├── hikvision_ds2cd.json           # App-webs, Digest Auth, CVE-2021-36260
-│   │   ├── dahua_ipc.json                 # Dahua-Webs, backdoor creds, CVE-2016-10372
-│   │   ├── open_access_cam.json           # Unauthenticated live video stream (ETSI EN 303 645 violation)
-│   │   ├── ip_webcam.json                 # Android smartphone camera sensor emulation
-│   │   └── hardened_cam.json              # Compliant enterprise baseline (unique strong credentials)
+│   ├── profiles/                          # Declarative JSON mock profiles (15 diverse IoT profiles)
+│   │   ├── dlink_dcs932l.json             # Camera: GoAhead-Webs/2.5, Basic Auth, CVE-2020-25078
+│   │   ├── hikvision_ds2cd.json           # Camera: App-webs, Digest Auth, CVE-2021-36260
+│   │   ├── dahua_ipc.json                 # Camera: Dahua-Webs, backdoor creds, CVE-2016-10372
+│   │   ├── open_access_cam.json           # Camera: Unauthenticated live stream (ETSI EN 303 645 violation)
+│   │   ├── ip_webcam.json                 # Camera: Android smartphone sensor emulation
+│   │   ├── hardened_cam.json              # Camera: Compliant baseline (unique credentials)
+│   │   ├── samsung_tizen_tv.json          # Smart TV: Unauthenticated REST control, CVE-2019-12297
+│   │   ├── lg_webos_tv.json               # Smart TV: webOS auth bypass & command injection, CVE-2023-6317
+│   │   ├── hardened_sony_tv.json          # Smart TV: Hardened baseline (Sony Bravia, TLS, patched)
+│   │   ├── daikin_smart_ac.json           # Smart AC: Daikin BRP069 unauthenticated REST API, CVE-2021-38144
+│   │   ├── hardened_gree_ac.json          # Smart AC: Hardened baseline (Gree Smart AC, patched fw 3.5.2)
+│   │   ├── xiaomi_smart_fan.json          # Smart Fan: Default credentials & token replay, CVE-2021-31560
+│   │   ├── dyson_pure_cool.json           # Smart Fan: Hardened baseline (Dyson Pure Cool, unique creds)
+│   │   ├── radio_thermostat_ct50.json     # Thermostat: Open REST API temperature override, CVE-2018-11315
+│   │   └── nest_smart_thermostat.json     # Thermostat: Hardened baseline (Google Nest, compliant)
 │   ├── templates/camera-mock/             # Standalone container template for camera emulation
 │   │   ├── Dockerfile
 │   │   └── camera_server.py               # Backward-compatible wrapper
@@ -81,17 +90,18 @@ iot-system/
 │   │   │   ├── default_passwords.txt      # Predefined IoT password dictionary & backdoor credentials
 │   │   │   ├── policy_engine.py           # Declarative YAML compliance auditor
 │   │   │   ├── triage.py                  # Auditor finding governance & sign-off ledger
-│   │   │   └── feeds/                     # Modular vulnerability feeds directory
+│   │   │   └── feeds/                     # Modular vulnerability feeds directory (19 real-world CVEs)
 │   │   │       ├── camera_fleet.json      # Camera CVEs (D-Link, Hikvision, Dahua, Xiongmai, TBK)
 │   │   │       ├── core_cves.json         # Realtek UPnP SOAP, TP-Link SmartPlug, Mosquitto MQTT
 │   │   │       ├── esp32_iot.json         # Espressif ESP32 HTTP overflow & BLE negotiation
-│   │   │       └── mobile_sensor.json     # Android IP Webcam frame disclosure
+│   │   │       ├── mobile_sensor.json     # Android IP Webcam frame disclosure
+│   │   │       └── smart_appliances.json  # Smart TV, AC, Fan, and Thermostat CVEs (Samsung, LG, Daikin, etc.)
 │   │   ├── scoping/                       # Device Classifier, VLAN Scoper, CIDR Scope Service
 │   │   ├── monitoring/                    # Real-time Alert & Webhook Dispatcher
 │   │   └── web/                           # FastAPI server & responsive Web Dashboard
 │   │       ├── api.py                     # RESTful API (/api/scan, /api/cve, /api/triage, /api/report)
 │   │       └── static/index.html          # Vertical sidebar UI with SVG topology & triage tables
-│   └── tests/                             # Comprehensive automated test suite (76 tests)
+│   └── tests/                             # Comprehensive automated test suite (105 tests)
 └── README.md
 ```
 
@@ -114,18 +124,18 @@ python run.py
 Open **[http://localhost:8000](http://localhost:8000)** in your browser.
 
 **What happens automatically:**
-1. Spawns 4 heterogeneous mock camera nodes on loopback multi-IPs (`127.0.0.2` to `127.0.0.5`) on real default ports (`80`, `8080`, `554`).
+1. Spawns 4 heterogeneous mock IoT device nodes on loopback multi-IPs (`127.0.0.2` to `127.0.0.5`) on real default ports (`80`, `8001`, `8080`, `8443`), featuring balanced security postures (both vulnerable and safety/compliant baselines across Cameras, Smart TVs, and Climate Controllers).
 2. Starts the SOC Web Dashboard and API on `http://localhost:8000`.
-3. Defaults audit scope to `ALL` — simultaneously sweeping both physical edge hotspot devices (`192.168.137.0/24`) and virtual testbed cameras.
-4. Pressing `Ctrl+C` cleanly shuts down all background camera processes and the web server.
+3. Defaults audit scope to `ALL` — simultaneously sweeping both physical edge hotspot devices (`192.168.137.0/24`) and virtual testbed devices.
+4. Pressing `Ctrl+C` cleanly shuts down all background device processes and the web server.
 
 #### Optional Flags for `run.py`:
 | Command | Description |
 | :--- | :--- |
-| `python run.py` | Full interactive SOC dashboard with 4 mock camera nodes (default). |
+| `python run.py` | Full interactive SOC dashboard with 4 balanced mock IoT nodes (default). |
 | `python run.py --scan` | One-shot CLI audit of all targets with full vulnerability report output. |
 | `python run.py --no-fleet` | Pure physical mode (audits only physical smartphones / ESP32 on Hotspot). |
-| `python run.py --cameras 6` | Scale virtual mock testbed to 6 heterogeneous nodes. |
+| `python run.py --device 6` | Scale virtual mock testbed to 6 nodes (accepts `--device`, `--devices`, or legacy `--cameras`). |
 | `python run.py --port 8080` | Bind web dashboard to custom port. |
 | `python run.py --target 192.168.137.0/24` | Restrict audit to a single designated CIDR or device IP. |
 
@@ -190,11 +200,12 @@ flowchart TD
         F2["feeds/camera_fleet.json"]
         F3["feeds/esp32_iot.json"]
         F4["feeds/mobile_sensor.json"]
+        F5["feeds/smart_appliances.json"]
         Sync["CVE Manager & NVD Synchronizer\n(Hot-reload, NVD API Sync, Custom Feeds)"]
     end
 
     ScaleUp --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
-    F1 & F2 & F3 & F4 --> Sync
+    F1 & F2 & F3 & F4 & F5 --> Sync
     Sync --> S4
 ```
 

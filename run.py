@@ -50,7 +50,13 @@ def main():
     parser.add_argument("--target", type=str, default="ALL", help="Target scope (default 'ALL' to audit both mock and physical edge devices)")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Web dashboard host (default 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8000, help="Web dashboard port (default 8000)")
-    parser.add_argument("--cameras", type=int, default=4, help="Number of virtual mock camera nodes to start (default 4)")
+    parser.add_argument(
+        "--device", "--devices", "--camera", "--cameras",
+        dest="devices",
+        type=int,
+        default=4,
+        help="Number of virtual mock IoT device nodes to start (default 4)"
+    )
     parser.add_argument("--no-fleet", action="store_true", help="Disable virtual mock fleet (pure physical hardware / external mode)")
 
     args = parser.parse_args()
@@ -75,8 +81,8 @@ def main():
     """)
 
     if not args.no_fleet:
-        print(f"[*] Initializing virtual mock camera testbed ({args.cameras} nodes on 127.0.0.2+)...")
-        start_fleet(count=args.cameras, use_loopback_ips=True)
+        print(f"[*] Initializing virtual mock IoT testbed ({args.devices} nodes on 127.0.0.2+)...")
+        start_fleet(count=args.devices, use_loopback_ips=True)
         _fleet_started = True
         time.sleep(0.8)
     else:

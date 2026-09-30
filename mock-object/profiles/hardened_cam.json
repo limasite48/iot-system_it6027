@@ -5,6 +5,7 @@
   "model": "ProSafe-Cam",
   "firmware": "4.2.1",
   "serial": "SECURECAM2026",
+  "device_category": "IP Camera",
   "default_http_port": 8443,
   "default_rtsp_port": 554,
   "http_server_banner": "SecureCam-OS/4.2",

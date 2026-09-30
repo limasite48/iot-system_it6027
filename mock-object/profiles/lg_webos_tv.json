@@ -1,0 +1,29 @@
+{
+  "profile_id": "lg_webos_tv",
+  "name": "LG webOS 4K OLED Smart TV",
+  "vendor": "LG Electronics",
+  "model": "OLED55C9 webOS TV",
+  "firmware": "4.30.15",
+  "serial": "LGTV2026C9OLED",
+  "device_category": "Smart TV / Media Player",
+  "default_http_port": 3000,
+  "default_rtsp_port": null,
+  "http_server_banner": "LG-webOS/4.0 WebServer",
+  "auth_type": "basic",
+  "auth_realm": "LG webOS TV",
+  "credentials": [
+    {"username": "admin", "password": "password"},
+    {"username": "admin", "password": "1234"},
+    {"username": "admin", "password": "123456"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": false,
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:MediaRenderer:1",
+  "ssdp_server_banner": "Linux/4.14 UPnP/1.0 LG-webOS/4.0",
+  "mdns_enabled": true,
+  "mdns_service_name": "LG-webOS-SmartTV",
+  "stream_endpoints": ["/roap/api/data", "/roap/api/command"],
+  "security_posture": "Vulnerable (Authentication Bypass & Default PIN)",
+  "cve_simulations": ["CVE-2023-6317", "CVE-2023-6318"]
+}

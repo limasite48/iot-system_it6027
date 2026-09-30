@@ -5,6 +5,7 @@
   "model": "IP Webcam Android",
   "firmware": "1.14.34",
   "serial": "ANDROIDIPCAM001",
+  "device_category": "IP Camera",
   "default_http_port": 8080,
   "default_rtsp_port": 8554,
   "http_server_banner": "IP Webcam Server/1.14",

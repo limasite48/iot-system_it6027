@@ -1,0 +1,27 @@
+{
+  "profile_id": "hardened_gree_ac",
+  "name": "Gree Commercial Inverter HVAC (Compliant)",
+  "vendor": "Gree Electric Appliances",
+  "model": "Multi-VRF Inverter System",
+  "firmware": "3.5.2",
+  "serial": "GREEVRF2026HVAC",
+  "device_category": "Smart Air Conditioner / HVAC",
+  "default_http_port": 8443,
+  "default_rtsp_port": null,
+  "http_server_banner": "Gree-HVAC-Secure/3.5",
+  "auth_type": "digest",
+  "auth_realm": "Gree Enterprise HVAC",
+  "credentials": [
+    {"username": "admin", "password": "Gree#EnterpriseHVAC2026"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": false,
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:HVAC_System:1",
+  "ssdp_server_banner": "Linux/4.19 UPnP/1.0 Gree-HVAC-Secure/3.5",
+  "mdns_enabled": true,
+  "mdns_service_name": "Gree-Commercial-HVAC",
+  "stream_endpoints": ["/api/v1/hvac/telemetry"],
+  "security_posture": "Compliant (Encrypted token authentication, local control isolation, patched firmware)",
+  "cve_simulations": []
+}

@@ -5,6 +5,7 @@ against the scalable IoT CVE multi-feed database using CPE 2.3 normalization
 and semantic version evaluation.
 """
 
+import re
 from typing import List, Dict, Any, Optional
 from app.audit.cpe_normalizer import CpeNormalizer, compare_versions
 from app.audit.cve_manager import GLOBAL_CVE_MANAGER
@@ -54,32 +55,57 @@ def match_cves_for_device(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         matched_cpe_uri = entry.get("cpe_uri", "")
 
         version_out_of_bounds = False
-        target_cpe_list = entry.get("target_cpe_list", [entry.get("cpe_uri", "")])
-        for cand in cpe_candidates:
-            cand_cpe = cand.get("cpe_uri", "")
-            for crit_cpe in target_cpe_list:
-                if crit_cpe and CpeNormalizer.match_cpe_criteria(cand_cpe, crit_cpe):
-                    # Check semantic version constraints
-                    ver = cand.get("version", "*")
-                    if ver and ver != "*":
-                        in_range = compare_versions(
-                            ver,
-                            version_start_including=entry.get("version_start_including"),
-                            version_end_including=entry.get("version_end_including"),
-                            version_end_excluding=entry.get("version_end_excluding")
-                        )
-                        if in_range:
+
+        # Pre-check firmware version against CVE bounds if device firmware is known
+        dev_fw = str(device_info.get("firmware") or "")
+        if not dev_fw and device_info.get("upnp_meta"):
+            mod_num = device_info["upnp_meta"].get("model_number") or ""
+            ver_m = re.search(r"(\d+\.\d+(?:\.\d+)?)", mod_num)
+            if ver_m:
+                dev_fw = ver_m.group(1)
+
+        has_version_constraints = bool(
+            entry.get("version_start_including") or
+            entry.get("version_end_including") or
+            entry.get("version_end_excluding")
+        )
+        if dev_fw and has_version_constraints:
+            in_range = compare_versions(
+                dev_fw,
+                version_start_including=entry.get("version_start_including"),
+                version_end_including=entry.get("version_end_including"),
+                version_end_excluding=entry.get("version_end_excluding")
+            )
+            if not in_range:
+                version_out_of_bounds = True
+
+        if not version_out_of_bounds:
+            target_cpe_list = entry.get("target_cpe_list", [entry.get("cpe_uri", "")])
+            for cand in cpe_candidates:
+                cand_cpe = cand.get("cpe_uri", "")
+                for crit_cpe in target_cpe_list:
+                    if crit_cpe and CpeNormalizer.match_cpe_criteria(cand_cpe, crit_cpe):
+                        # Check semantic version constraints
+                        ver = cand.get("version", "*")
+                        if ver and ver != "*":
+                            in_range = compare_versions(
+                                ver,
+                                version_start_including=entry.get("version_start_including"),
+                                version_end_including=entry.get("version_end_including"),
+                                version_end_excluding=entry.get("version_end_excluding")
+                            )
+                            if in_range:
+                                is_matched = True
+                                matched_cpe_uri = cand_cpe
+                                break
+                            else:
+                                version_out_of_bounds = True
+                        else:
                             is_matched = True
                             matched_cpe_uri = cand_cpe
                             break
-                        else:
-                            version_out_of_bounds = True
-                    else:
-                        is_matched = True
-                        matched_cpe_uri = cand_cpe
-                        break
-            if is_matched:
-                break
+                if is_matched or version_out_of_bounds:
+                    break
 
         # B. Fallback 1: Direct Banner pattern matching (only if version not confirmed out-of-bounds)
         if not is_matched and not version_out_of_bounds:
@@ -100,6 +126,13 @@ def match_cves_for_device(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
             mqtt_banner = banners.get("mqtt_1883", {})
             if isinstance(mqtt_banner, dict) and mqtt_banner.get("anonymous_allowed"):
                 is_matched = True
+
+        # E. Verify required open ports if device open_ports is present
+        if is_matched and entry.get("required_open_ports") and device_info.get("open_ports"):
+            req_p = entry["required_open_ports"]
+            dev_p = device_info["open_ports"]
+            if not any(p in dev_p for p in req_p):
+                is_matched = False
 
         if is_matched:
             # Deduplicate by CVE ID

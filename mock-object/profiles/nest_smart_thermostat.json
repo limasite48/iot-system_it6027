@@ -1,0 +1,27 @@
+{
+  "profile_id": "nest_smart_thermostat",
+  "name": "Google Nest Learning Thermostat (Compliant)",
+  "vendor": "Nest Labs Inc.",
+  "model": "Nest Learning Thermostat 4th Gen",
+  "firmware": "6.2.1",
+  "serial": "NESTTHERM2026GEN4",
+  "device_category": "Smart Thermostat",
+  "default_http_port": 8443,
+  "default_rtsp_port": null,
+  "http_server_banner": "Nest-OS/6.2",
+  "auth_type": "digest",
+  "auth_realm": "Google Nest Enterprise",
+  "credentials": [
+    {"username": "admin", "password": "Nest#Secured2026!"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": false,
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:Thermostat:1",
+  "ssdp_server_banner": "Linux/5.10 UPnP/1.0 Nest-OS/6.2",
+  "mdns_enabled": true,
+  "mdns_service_name": "Google-Nest-Thermostat",
+  "stream_endpoints": ["/api/v1/thermostat/state"],
+  "security_posture": "Compliant (Encrypted mutual TLS, strong authentication, no open management endpoints)",
+  "cve_simulations": []
+}

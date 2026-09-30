@@ -167,17 +167,76 @@ class DynamicCameraHTTPHandler(BaseHTTPRequestHandler):
             self.wfile.write(xml_data.encode("utf-8"))
             return
 
+        # Specific IoT appliance REST endpoints (Smart AC, Thermostat, TV, Fan)
+        if path.startswith("/aircon/get_control_info"):
+            self.send_camera_headers(200, "text/plain")
+            body = "ret=OK,pow=1,mode=3,adv=,stemp=24.0,shum=0\n"
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode("utf-8"))
+            return
+        elif path.startswith("/tstat"):
+            self.send_camera_headers(200, "application/json")
+            body = json.dumps({"temp": 72.5, "tmode": 1, "fmode": 0, "override": 0, "hold": 0, "model": self.server_profile.get("model", "CT50")})
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode("utf-8"))
+            return
+        elif path.startswith("/api/v2"):
+            self.send_camera_headers(200, "application/json")
+            body = json.dumps({
+                "device": {
+                    "type": "Samsung SmartTV",
+                    "modelName": self.server_profile.get("model", "UN55RU7100"),
+                    "version": self.server_profile.get("firmware", "1110.2"),
+                    "name": self.server_profile.get("name", "Samsung Tizen TV")
+                }
+            })
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode("utf-8"))
+            return
+        elif path.startswith("/api/fan/status"):
+            self.send_camera_headers(200, "application/json")
+            body = json.dumps({"power": "on", "speed": 3, "oscillating": True, "mode": "natural"})
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode("utf-8"))
+            return
+
         auth_type = self.server_profile.get("auth_type", "basic").lower()
         is_open = self.server_profile.get("is_open_access", False)
 
         # 1. Unauthenticated Open Access
         if is_open or auth_type == "none":
             self.send_camera_headers(200, "text/html")
+            category = self.server_profile.get("device_category", "IP Camera")
+            if "TV" in category:
+                page_title = f"{self.server_profile.get('name')} - Web Control"
+                status_desc = f"Status: Online | {category} Control Panel"
+                control_html = "<div class='tv-control'><p>Media Receiver Online: /api/v2/</p></div>"
+            elif "Air Conditioner" in category or "HVAC" in category:
+                page_title = f"{self.server_profile.get('name')} - Web Control"
+                status_desc = f"Status: Online | {category} Control Panel"
+                control_html = "<div class='hvac-control'><p>Climate Controller Online: /aircon/get_control_info (Temp: 24C)</p></div>"
+            elif "Thermostat" in category:
+                page_title = f"{self.server_profile.get('name')} - Web Control"
+                status_desc = f"Status: Online | {category} Control Panel"
+                control_html = "<div class='tstat-control'><p>Thermostat Controller Online: /tstat (Temp: 72F)</p></div>"
+            elif "Fan" in category:
+                page_title = f"{self.server_profile.get('name')} - Web Control"
+                status_desc = f"Status: Online | {category} Control Panel"
+                control_html = "<div class='fan-control'><p>Smart Fan Online: /api/fan/status</p></div>"
+            else:
+                page_title = f"{self.server_profile.get('name')} - Live Stream"
+                status_desc = "Status: Online | Live Camera Stream"
+                control_html = "<div class='feed'><p>Video Stream Active: /videostream.cgi</p></div>"
+
             body = (
-                f"<html><head><title>{self.server_profile.get('name')} - Live Stream</title></head>"
+                f"<html><head><title>{page_title}</title></head>"
                 f"<body><h1>{self.server_profile.get('name')}</h1>"
-                f"<p>Status: Online | Live Camera Stream</p>"
-                f"<div class='feed'><p>Video Stream Active: /videostream.cgi</p></div>"
+                f"<p>{status_desc}</p>"
+                f"{control_html}"
                 f"</body></html>"
             )
             self.send_header("Content-Length", str(len(body)))
@@ -209,11 +268,14 @@ class DynamicCameraHTTPHandler(BaseHTTPRequestHandler):
                 return
 
         # Authenticated view
+        category = self.server_profile.get("device_category", "IP Camera")
         self.send_camera_headers(200, "text/html")
+        header_title = f"{self.server_profile.get('name')} Live Stream" if "Camera" in category else self.server_profile.get('name')
         body = (
             f"<html><head><title>{self.server_profile.get('name')} Administration</title></head>"
-            f"<body><h1>{self.server_profile.get('name')} Live Stream</h1>"
+            f"<body><h1>{header_title}</h1>"
             f"<p>Model: {self.server_profile.get('model')} | Firmware: {self.server_profile.get('firmware')}</p>"
+            f"<p>Category: {category}</p>"
             f"<p>Authenticated Session Active</p></body></html>"
         )
         self.send_header("Content-Length", str(len(body)))
@@ -308,12 +370,30 @@ class DynamicCameraRTSPServer:
                         except Exception:
                             pass
                     elif auth_type == "digest" and auth_header and "digest" in auth_header.lower():
-                        # Basic Digest token match
                         try:
                             parts = re.findall(r'(\w+)=(?:"([^"]+)"|([^\s,]+))', auth_header)
                             params = {p[0]: (p[1] or p[2]) for p in parts}
                             u = params.get("username", "")
-                            is_authed = any(c.get("username") == u for c in self.profile.get("credentials", []))
+                            resp_h = params.get("response", "")
+                            nonce_val = params.get("nonce", "d8a9e2026")
+                            uri_val = params.get("uri", "")
+
+                            valid_creds = self.profile.get("credentials", [])
+                            matched_c = [c for c in valid_creds if c.get("username") == u]
+                            for c in matched_c:
+                                pwd = c.get("password", "")
+                                ha1 = hashlib.md5(f"{u}:{realm}:{pwd}".encode()).hexdigest()
+                                ha2_candidates = [
+                                    hashlib.md5(f"DESCRIBE:{uri_val}".encode()).hexdigest(),
+                                    hashlib.md5(f"DESCRIBE:/live".encode()).hexdigest()
+                                ]
+                                for ha2 in ha2_candidates:
+                                    exp_hash = hashlib.md5(f"{ha1}:{nonce_val}:{ha2}".encode()).hexdigest()
+                                    if exp_hash.lower() == resp_h.lower():
+                                        is_authed = True
+                                        break
+                                if is_authed:
+                                    break
                         except Exception:
                             pass
 
@@ -432,21 +512,33 @@ class DynamicMDNSAdvertiser:
             host_ip = self.explicit_ip or socket.gethostbyname(socket.gethostname())
             ip_bytes = socket.inet_aton(host_ip)
 
-            svc_name = self.profile.get("mdns_service_name", "Mock-Camera")
+            category = self.profile.get("device_category", "IP Camera")
+            if "TV" in category:
+                svc_type = "_googlecast._tcp.local."
+            elif "Air Conditioner" in category or "HVAC" in category:
+                svc_type = "_daikin._tcp.local."
+            elif "Thermostat" in category:
+                svc_type = "_thermostat._tcp.local."
+            elif "Fan" in category:
+                svc_type = "_fan._tcp.local."
+            else:
+                svc_type = "_camera._tcp.local."
+
+            svc_name = self.profile.get("mdns_service_name", "Mock-IoT-Device")
             self.info = ServiceInfo(
-                "_camera._tcp.local.",
-                f"{svc_name}._camera._tcp.local.",
+                svc_type,
+                f"{svc_name}.{svc_type}",
                 addresses=[ip_bytes],
                 port=self.http_port,
                 properties={
-                    "model": self.profile.get("model", "Camera"),
+                    "model": self.profile.get("model", "Device"),
                     "vendor": self.profile.get("vendor", "Generic"),
                     "firmware": self.profile.get("firmware", "1.0.0")
                 },
-                server=f"{self.profile.get('profile_id', 'camera')}.local."
+                server=f"{self.profile.get('profile_id', 'device')}.local."
             )
             self.zc.register_service(self.info)
-            print(f"[+] mDNS Advertiser registered: {svc_name}._camera._tcp.local.")
+            print(f"[+] mDNS Advertiser registered: {svc_name}.{svc_type}")
         except ImportError:
             print("[i] Note: zeroconf package not installed; mDNS advertising skipped.")
         except Exception as e:

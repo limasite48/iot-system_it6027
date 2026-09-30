@@ -1,0 +1,225 @@
+[
+  {
+    "cve_id": "CVE-2019-12297",
+    "title": "Samsung Tizen Smart TV Unauthenticated Remote Control Command Execution",
+    "target_cpe_list": [
+      "cpe:2.3:h:samsung:tizen_smart_tv:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:samsung:tizen:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0",
+    "version_end_including": "1120.0",
+    "affected_vendors": ["Samsung", "Samsung Electronics"],
+    "affected_products": ["Tizen Smart TV", "UN55RU7100", "Tizen"],
+    "affected_banners": ["Samsung-Tizen-TV", "Tizen Smart TV", "Samsung SmartTV"],
+    "required_open_ports": [8001, 8002],
+    "required_service": "http",
+    "cvss_score": 8.1,
+    "cvss_v3": {
+      "score": 8.1,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "HIGH"
+    },
+    "severity": "HIGH",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-306",
+    "description": "Samsung Tizen Smart TVs with firmware prior to 1120.0 expose an unauthenticated HTTP REST API on port 8001/8002 allowing adjacent network attackers to issue arbitrary keystroke and control commands without user pairing.",
+    "remediation": "Update Samsung Smart TV firmware to version 1120.0 or later and enable Secure PIN Pairing."
+  },
+  {
+    "cve_id": "CVE-2023-6317",
+    "title": "LG webOS Smart TV Account Creation and Authorization Bypass",
+    "target_cpe_list": [
+      "cpe:2.3:o:lg:webos:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:lg:webos_smart_tv:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "4.0",
+    "version_end_including": "4.30.20",
+    "affected_vendors": ["LG", "LG Electronics"],
+    "affected_products": ["webOS", "webOS TV", "OLED55C9"],
+    "affected_banners": ["LG-webOS", "webOS TV", "LG webOS"],
+    "required_open_ports": [3000, 3001],
+    "required_service": "http",
+    "cvss_score": 7.2,
+    "cvss_v3": {
+      "score": 7.2,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
+      "severity": "HIGH"
+    },
+    "severity": "HIGH",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-287",
+    "description": "LG webOS Smart TVs running webOS 4.x through 7.x allow adjacent network attackers to bypass authentication on the second-screen service (port 3000) by manipulating internal variable configurations, enabling privileged account creation.",
+    "remediation": "Upgrade LG webOS software to the latest security patch release and isolate smart TVs on a dedicated media VLAN."
+  },
+  {
+    "cve_id": "CVE-2023-6318",
+    "title": "LG webOS Smart TV Arbitrary Command Injection in Process Manager",
+    "target_cpe_list": [
+      "cpe:2.3:o:lg:webos:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "4.0",
+    "version_end_including": "4.30.20",
+    "affected_vendors": ["LG", "LG Electronics"],
+    "affected_products": ["webOS", "webOS TV"],
+    "affected_banners": ["LG-webOS", "webOS"],
+    "required_open_ports": [3000, 3001],
+    "required_service": "http",
+    "cvss_score": 8.8,
+    "cvss_v3": {
+      "score": 8.8,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "HIGH"
+    },
+    "severity": "HIGH",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-78",
+    "description": "An OS command injection vulnerability in the process-manager service of LG webOS allows authenticated local or adjacent network attackers to execute arbitrary system commands as root.",
+    "remediation": "Apply LG security firmware patch version 4.30.25 or later."
+  },
+  {
+    "cve_id": "CVE-2021-38144",
+    "title": "Daikin BRP Wi-Fi Air Conditioner Controller Unauthenticated Settings Manipulation",
+    "target_cpe_list": [
+      "cpe:2.3:h:daikin:brp069:*:*:*:*:*:*:*:*",
+      "cpe:2.3:o:daikin:brp069_firmware:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0",
+    "version_end_including": "1.3.0",
+    "affected_vendors": ["Daikin", "Daikin Industries"],
+    "affected_products": ["BRP069", "AirBase", "BRP069A41"],
+    "affected_banners": ["Daikin-HTTP-Server", "Daikin-AirBase", "Daikin Air Conditioner"],
+    "required_open_ports": [80, 8080],
+    "required_service": "http",
+    "cvss_score": 7.5,
+    "cvss_v3": {
+      "score": 7.5,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H",
+      "severity": "HIGH"
+    },
+    "severity": "HIGH",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-306",
+    "description": "Daikin AirBase BRP069 Wi-Fi adapters expose unauthenticated HTTP control endpoints (/aircon/set_control_info) allowing any local network device to tamper with climate temperatures, HVAC operation modes, or cause denial of service.",
+    "remediation": "Restrict HVAC Wi-Fi controllers to an isolated VLAN and update Daikin adapter firmware."
+  },
+  {
+    "cve_id": "CVE-2020-28001",
+    "title": "Gree / Midea Smart Air Conditioner Unauthenticated Local UDP Broadcast Hijacking",
+    "target_cpe_list": [
+      "cpe:2.3:h:gree:smart_air_conditioner:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:midea:smart_ac:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0",
+    "version_end_including": "2.1.0",
+    "affected_vendors": ["Gree", "Gree Electric Appliances", "Midea"],
+    "affected_products": ["Smart Air Conditioner", "Smart AC", "Inverter AC"],
+    "affected_banners": ["Gree-AC-Control", "Midea Smart AC", "Smart-Air-Conditioner"],
+    "required_open_ports": [80, 7000],
+    "required_service": "http",
+    "cvss_score": 7.3,
+    "cvss_v3": {
+      "score": 7.3,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N",
+      "severity": "HIGH"
+    },
+    "severity": "HIGH",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-321",
+    "description": "Smart air conditioners utilizing legacy Gree/Midea Wi-Fi modules use hardcoded encryption keys (a3K8BsHG8esIKWHz) over local network control packets, allowing unauthorized heating/cooling manipulation.",
+    "remediation": "Migrate air conditioners to dynamic token authentication and isolate HVAC units on VLAN 99."
+  },
+  {
+    "cve_id": "CVE-2018-11315",
+    "title": "Radio Thermostat CT50 / CT80 Unauthenticated HTTP REST API Temperature Override",
+    "target_cpe_list": [
+      "cpe:2.3:h:radiothermostat:ct50:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:radiothermostat:ct80:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0",
+    "version_end_including": "1.04.84",
+    "affected_vendors": ["Radio Thermostat", "Radio Thermostat Company of America"],
+    "affected_products": ["CT50", "CT80", "Radio Thermostat"],
+    "affected_banners": ["Radio-Thermostat-Web", "Radio Thermostat CT50"],
+    "required_open_ports": [80],
+    "required_service": "http",
+    "cvss_score": 7.5,
+    "cvss_v3": {
+      "score": 7.5,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H",
+      "severity": "HIGH"
+    },
+    "severity": "HIGH",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-306",
+    "description": "Radio Thermostat CT50 and CT80 devices expose an unauthenticated HTTP REST API on port 80 (/tstat and /sys). Any adjacent host can read room temperatures, alter target HVAC setpoints, or induce high-frequency relay cycles.",
+    "remediation": "Apply firewall ACLs restricting access to the thermostat IP and disable unauthenticated local web control."
+  },
+  {
+    "cve_id": "CVE-2021-31560",
+    "title": "Xiaomi Mi Smart Standing Fan / Purifier Local Token Replay & Control Override",
+    "target_cpe_list": [
+      "cpe:2.3:h:xiaomi:mi_smart_fan:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:xiaomi:mi_air_purifier:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0",
+    "version_end_including": "1.1.2",
+    "affected_vendors": ["Xiaomi", "Xiaomi Communications"],
+    "affected_products": ["Mi Smart Fan", "Mi Smart Fan 2", "Mi Air Purifier"],
+    "affected_banners": ["Mi-Smart-Fan-OS", "Mi Smart Fan", "Xiaomi Smart Fan"],
+    "required_open_ports": [8080],
+    "required_service": "http",
+    "cvss_score": 6.5,
+    "cvss_v3": {
+      "score": 6.5,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L",
+      "severity": "MEDIUM"
+    },
+    "severity": "MEDIUM",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-294",
+    "description": "Xiaomi Mi Smart Standing Fan 2 devices allow adjacent network attackers to replay captured handshake tokens or exploit default administrative passwords on port 8080 to override fan oscillation and motor speed.",
+    "remediation": "Change default passwords, update fan firmware via Mi Home app, and isolate IoT smart home accessories."
+  },
+  {
+    "cve_id": "CVE-2022-26132",
+    "title": "Tuya Smart SDK Local Key Replay & Appliance Relay Override",
+    "target_cpe_list": [
+      "cpe:2.3:a:tuya:tuya_smart_sdk:*:*:*:*:*:*:*:*",
+      "cpe:2.3:h:tuya:smart_fan:*:*:*:*:*:*:*:*"
+    ],
+    "version_start_including": "1.0",
+    "version_end_including": "2.0.0",
+    "affected_vendors": ["Tuya", "Tuya Smart Inc."],
+    "affected_products": ["Tuya Smart SDK", "Smart Fan", "Tuya Fan"],
+    "affected_banners": ["Tuya-Smart-Appliance", "Tuya IoT"],
+    "required_open_ports": [80, 6668],
+    "required_service": "http",
+    "cvss_score": 6.8,
+    "cvss_v3": {
+      "score": 6.8,
+      "vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N",
+      "severity": "MEDIUM"
+    },
+    "severity": "MEDIUM",
+    "attack_vector": "ADJACENT_NETWORK",
+    "cisa_kev": false,
+    "known_botnet_vector": [],
+    "cwe_id": "CWE-326",
+    "description": "The Tuya Smart SDK implements weak local encryption protocols (version 3.1) permitting adjacent network eavesdroppers to decrypt local control payloads and manipulate fan speeds, light relays, or appliance state.",
+    "remediation": "Update Tuya device firmware to version 3.3+ utilizing encrypted key exchange."
+  }
+]

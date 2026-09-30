@@ -5,6 +5,7 @@
   "model": "DH-IPC",
   "firmware": "2.400.0000.0",
   "serial": "DAHUAIPC09988",
+  "device_category": "IP Camera",
   "default_http_port": 80,
   "default_rtsp_port": 554,
   "http_server_banner": "Dahua-Webs (DH-IPC)",

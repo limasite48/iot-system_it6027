@@ -5,6 +5,7 @@
   "model": "OpenStream-Cam",
   "firmware": "1.0.0",
   "serial": "OPENCAM999",
+  "device_category": "IP Camera",
   "default_http_port": 8081,
   "default_rtsp_port": 554,
   "http_server_banner": "OpenStream Surveillance Video Server",

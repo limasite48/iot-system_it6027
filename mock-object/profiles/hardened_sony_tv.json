@@ -1,0 +1,27 @@
+{
+  "profile_id": "hardened_sony_tv",
+  "name": "Sony Bravia XR 4K Android TV (Compliant)",
+  "vendor": "Sony Corporation",
+  "model": "Bravia XR-55A80K",
+  "firmware": "11.2.0",
+  "serial": "SONYBRAVIA2026A80",
+  "device_category": "Smart TV / Media Player",
+  "default_http_port": 8443,
+  "default_rtsp_port": null,
+  "http_server_banner": "Sony-Bravia-OS/11.2",
+  "auth_type": "digest",
+  "auth_realm": "Sony Bravia Enterprise",
+  "credentials": [
+    {"username": "admin", "password": "Bravia#Secure2026!Key"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": false,
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:MediaRenderer:1",
+  "ssdp_server_banner": "Linux/5.15 UPnP/1.0 Sony-Bravia-OS/11.2",
+  "mdns_enabled": true,
+  "mdns_service_name": "Sony-Bravia-XR-TV",
+  "stream_endpoints": ["/sony/accessControl", "/sony/appControl"],
+  "security_posture": "Compliant (TLS Encrypted PIN pairing, strong unique auth, patched firmware)",
+  "cve_simulations": []
+}

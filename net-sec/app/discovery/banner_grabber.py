@@ -124,7 +124,7 @@ def inspect_all_banners(ip: str, open_ports: List[int]) -> Dict[str, Any]:
     """Inspect all open ports on a host and collect comprehensive banners."""
     banners = {}
     for port in open_ports:
-        if port in [80, 443, 5000, 8080, 8081, 8089, 8443, 8888, 9999]:
+        if port in [80, 443, 3000, 3001, 5000, 8001, 8002, 8080, 8081, 8089, 8443, 8888, 9999]:
             banners[f"http_{port}"] = grab_http_banner(ip, port)
         elif port in [554]:
             banners["rtsp_554"] = grab_rtsp_banner(ip, port)

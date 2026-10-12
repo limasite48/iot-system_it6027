@@ -46,8 +46,10 @@ def run_mdns_advertiser(http_port=8080):
 
 if __name__ == "__main__":
     profile_name = os.environ.get("CAMERA_PROFILE", "dlink_dcs932l")
-    http_port = int(os.environ.get("HTTP_PORT", "8080"))
-    rtsp_port = int(os.environ.get("RTSP_PORT", "554"))
+    http_env = os.environ.get("HTTP_PORT", "")
+    http_port = int(http_env) if http_env and http_env.isdigit() else None
+    rtsp_env = os.environ.get("RTSP_PORT", "")
+    rtsp_port = int(rtsp_env) if rtsp_env and rtsp_env.isdigit() else None
     bind_ip = os.environ.get("BIND_IP", "0.0.0.0")
 
     server = CameraServer(profile_name_or_dict=profile_name, http_port=http_port, rtsp_port=rtsp_port, ip=bind_ip)

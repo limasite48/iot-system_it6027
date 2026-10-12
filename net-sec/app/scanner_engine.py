@@ -6,6 +6,7 @@ and VLAN Scoping with execution stages and scan_id tracking.
 Fully dynamic, eliminated hardcoded subnet assumptions and ghost ARP leases.
 """
 
+import os
 import asyncio
 import socket
 import re
@@ -41,7 +42,7 @@ from app.discovery.network_env import (
 )
 
 class SecurityScannerEngine:
-    def __init__(self):
+    def __init__(self, db_manager=None, auto_load: bool = False):
         import threading
         self._lock = threading.RLock()
         self.inventory: Dict[str, Dict[str, Any]] = {}
@@ -52,11 +53,35 @@ class SecurityScannerEngine:
         self.current_scan_id: Optional[str] = None
         self.current_stage: str = "IDLE"
         self.scan_history: List[Dict[str, Any]] = []
+        self.db_manager = db_manager
+        if auto_load and self.db_manager:
+            self._load_from_db()
+
+    def _load_from_db(self):
+        """Restore devices, scan history, and alerts from SQLite database."""
+        if self.db_manager:
+            try:
+                saved_devices = self.db_manager.load_all_devices()
+                if saved_devices:
+                    self.inventory.update(saved_devices)
+                saved_scans = self.db_manager.load_scan_history(limit=50)
+                if saved_scans:
+                    self.scan_history = list(reversed(saved_scans))
+                saved_alerts = self.db_manager.load_recent_alerts(limit=50)
+                if saved_alerts:
+                    self.alerts = list(reversed(saved_alerts))
+            except Exception:
+                pass
 
     def record_alert(self, alert: Dict[str, Any]):
-        """Record alert to internal ledger and dispatch to external webhook asynchronously."""
+        """Record alert to internal ledger, SQLite database, and dispatch to external webhook asynchronously."""
         with self._lock:
             self.alerts.append(alert)
+        if self.db_manager:
+            try:
+                self.db_manager.save_alert(alert)
+            except Exception:
+                pass
         try:
             GLOBAL_ALERT_DISPATCHER.dispatch_alert_async(alert)
         except Exception:
@@ -65,24 +90,55 @@ class SecurityScannerEngine:
     def get_arp_hosts(self, edge_only: bool = True) -> Dict[str, str]:
         """
         Read system ARP table to find known IPs and MAC addresses.
+        Supports Linux /proc/net/arp (Docker container/Linux host),
+        Windows arp -a, and macOS/BSD arp -a.
         When edge_only=True, suppresses upstream WAN/home Wi-Fi entries.
         """
         hosts = {}
+        # 1. Linux kernel /proc/net/arp (primary for Docker containers & Linux hosts)
+        if os.path.exists("/proc/net/arp"):
+            try:
+                with open("/proc/net/arp", "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f.readlines()[1:]:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            ip, mac = parts[0], parts[3].replace("-", ":").upper()
+                            if mac != "00:00:00:00:00:00" and not ip.endswith(".255"):
+                                if edge_only and not is_edge_ip(ip):
+                                    continue
+                                hosts[ip] = mac
+                if hosts:
+                    return hosts
+            except Exception:
+                pass
+
+        # 2. Command fallback: arp -a (Windows, macOS, Linux)
         try:
             output = subprocess.check_output(["arp", "-a"], text=True, timeout=5)
-            pattern = re.compile(r"^\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\s+([0-9a-fA-F-]+)\s+(\w+)", re.MULTILINE)
-            for match in pattern.finditer(output):
+            # Match Windows: 192.168.1.1 00-11-22-33-44-55 dynamic
+            win_pattern = re.compile(r"^\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\s+([0-9a-fA-F-]+)\s+(\w+)", re.MULTILINE)
+            for match in win_pattern.finditer(output):
                 ip, mac, _ = match.groups()
                 if not ip.endswith(".255") and not ip.startswith("224.") and not ip.startswith("239."):
                     if edge_only and not is_edge_ip(ip):
                         continue
                     hosts[ip] = mac.replace("-", ":").upper()
+
+            # Match macOS / Linux: ? (192.168.1.1) at 0:11:22:33:44:55 on en0
+            unix_pattern = re.compile(r"\(([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\)\s+at\s+([0-9a-fA-F:]{11,17})", re.MULTILINE)
+            for match in unix_pattern.finditer(output):
+                ip, mac = match.groups()
+                if not ip.endswith(".255") and not ip.startswith("224.") and not ip.startswith("239."):
+                    if edge_only and not is_edge_ip(ip):
+                        continue
+                    mac_parts = [p.zfill(2) for p in mac.split(":")]
+                    hosts[ip] = ":".join(mac_parts).upper()
         except Exception:
             pass
         return hosts
 
-    async def scan_single_device(self, ip: str, mac: str = "", mdns_info: List[Dict] = None, upnp_info: Dict = None) -> Dict[str, Any]:
-        """Deep fingerprinting and vulnerability audit of a single host."""
+    async def fingerprint_device(self, ip: str, mac: str = "", mdns_info: List[Dict] = None, upnp_info: Dict = None) -> Dict[str, Any]:
+        """Stage 4: Deep Host Fingerprinting (Ports, Banners, UPnP XML, mDNS, OUI, Classification)."""
         from app.discovery.port_scanner import COMMON_IOT_PORTS
         candidate_ports = set(COMMON_IOT_PORTS)
         if mdns_info:
@@ -172,30 +228,65 @@ class SecurityScannerEngine:
             "open_ports": open_ports,
             "banners": banners,
             "upnp_meta": upnp_meta,
+            "upnp": upnp_info,
             "mdns_services": mdns_info or []
         }
 
-        # 1. Device Type Classification (Mandatory)
-        device_type = classify_device(raw_device)
+        # Device Type Classification (Mandatory)
+        raw_device["device_type"] = classify_device(raw_device)
+        return raw_device
 
-        # 2. Firmware / CVE Matching with CPE 2.3 Normalization (Mandatory)
+    async def audit_device_vulnerabilities(self, raw_device: Dict[str, Any]) -> Dict[str, Any]:
+        """Stage 5: Vulnerability & Credential Audit (CVE Matching, Default Password, SSVC/VEX Prioritization)."""
+        ip = raw_device["ip"]
+        open_ports = raw_device.get("open_ports", [])
+
+        # 1. Firmware / CVE Matching with CPE 2.3 Normalization (Mandatory)
         raw_matched_cves = match_cves_for_device(raw_device)
 
-        # 3. Default Password & Open Access Auditing (Mandatory)
+        # 2. Default Password & Open Access Auditing (Mandatory)
         cred_audit = await asyncio.to_thread(test_device_credentials, ip, open_ports)
         is_open_access = any(f.get("is_open_access") for f in cred_audit.get("findings", []))
         default_creds_found = any(not f.get("is_open_access") for f in cred_audit.get("findings", []))
 
-        # 4. Contextual Vulnerability Prioritization (CISA SSVC & VEX Evaluation)
+        # 3. Contextual Vulnerability Prioritization (CISA SSVC & VEX Evaluation)
         vlan = resolve_vlan_for_ip(ip)
         context_eval = evaluate_device_context({
             "open_ports": open_ports,
             "default_credentials_found": default_creds_found,
             "vlan": vlan
         }, raw_matched_cves)
-        matched_cves = context_eval["evaluated_cves"]
 
-        # 5. Declarative Policy Engine Evaluation
+        return {
+            "raw_matched_cves": raw_matched_cves,
+            "matched_cves": context_eval["evaluated_cves"],
+            "context_eval": context_eval,
+            "cred_audit": cred_audit,
+            "is_open_access": is_open_access,
+            "default_credentials_found": default_creds_found,
+            "vlan": vlan
+        }
+
+    def evaluate_device_policies(self, raw_device: Dict[str, Any], audit_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Stage 6: Declarative Policy Hardening Evaluation, VLAN Scoping, Triage Ledger & Alert Dispatch."""
+        ip = raw_device["ip"]
+        mac = raw_device.get("mac", "Unknown")
+        vendor = raw_device.get("vendor", "Unknown")
+        model = raw_device.get("model", "Unspecified")
+        device_type = raw_device.get("device_type", "Generic IoT Device")
+        open_ports = raw_device.get("open_ports", [])
+        banners = raw_device.get("banners", {})
+        upnp_info = raw_device.get("upnp")
+        mdns_info = raw_device.get("mdns_services", [])
+
+        matched_cves = audit_data["matched_cves"]
+        context_eval = audit_data["context_eval"]
+        cred_audit = audit_data["cred_audit"]
+        is_open_access = audit_data["is_open_access"]
+        default_creds_found = audit_data["default_credentials_found"]
+        vlan = audit_data["vlan"]
+
+        # 1. Declarative Policy Engine Evaluation
         eval_payload = {
             "ip": ip,
             "open_ports": open_ports,
@@ -206,7 +297,7 @@ class SecurityScannerEngine:
         }
         policy_eval = GLOBAL_POLICY_ENGINE.evaluate_device(eval_payload)
 
-        # 6. VLAN Scoping & Quarantine Policy
+        # 2. VLAN Scoping & Quarantine Policy
         scoping_eval = evaluate_scoping_policy({
             "default_credentials_found": default_creds_found,
             "is_open_access": is_open_access,
@@ -228,7 +319,7 @@ class SecurityScannerEngine:
             "open_ports": open_ports,
             "banners": banners,
             "upnp": upnp_info,
-            "mdns": mdns_info or [],
+            "mdns": mdns_info,
             "cves": matched_cves,
             "contextual_prioritization": {
                 "highest_ssvc_action": context_eval.get("highest_ssvc_action"),
@@ -331,7 +422,19 @@ class SecurityScannerEngine:
         with self._lock:
             self.inventory[ip] = full_record
 
+        if self.db_manager:
+            try:
+                self.db_manager.save_device(full_record, scan_id=self.current_scan_id)
+            except Exception:
+                pass
+
         return full_record
+
+    async def scan_single_device(self, ip: str, mac: str = "", mdns_info: List[Dict] = None, upnp_info: Dict = None) -> Dict[str, Any]:
+        """Deep fingerprinting and vulnerability audit of a single host."""
+        raw_device = await self.fingerprint_device(ip=ip, mac=mac, mdns_info=mdns_info, upnp_info=upnp_info)
+        audit_data = await self.audit_device_vulnerabilities(raw_device)
+        return self.evaluate_device_policies(raw_device, audit_data)
 
     async def execute_network_scan(self, target_cidr: str = None, timeout_discovery: float = 2.5) -> List[Dict[str, Any]]:
         """
@@ -351,6 +454,18 @@ class SecurityScannerEngine:
         # Stage 1: Scope Verification
         self.current_stage = "STAGE_1_SCOPE_VERIFICATION"
         print(f"[*] [{scan_id}] Stage 1: Verifying Scope for {target_cidr}...")
+        if self.db_manager:
+            try:
+                self.db_manager.save_scan({
+                    "scan_id": scan_id,
+                    "target_cidr": target_cidr,
+                    "start_time": self.last_scan_time,
+                    "status": "IN_PROGRESS",
+                    "stage": self.current_stage,
+                    "devices_discovered": 0
+                })
+            except Exception:
+                pass
         scope_res = GLOBAL_SCOPE_MANAGER.check_scope(target_cidr)
         if not scope_res.get("allowed"):
             err_msg = f"Scope Violation: Scanning {target_cidr} is not permitted ({scope_res.get('reason')})."
@@ -366,7 +481,7 @@ class SecurityScannerEngine:
             with self._lock:
                 self.is_scanning = False
                 self.current_stage = "SCOPE_VIOLATION_HALTED"
-                self.scan_history.append({
+                rejection_record = {
                     "scan_id": scan_id,
                     "target_cidr": target_cidr,
                     "start_time": self.last_scan_time,
@@ -374,7 +489,13 @@ class SecurityScannerEngine:
                     "status": "REJECTED_SCOPE_VIOLATION",
                     "devices_discovered": 0,
                     "stage": self.current_stage
-                })
+                }
+                self.scan_history.append(rejection_record)
+                if self.db_manager:
+                    try:
+                        self.db_manager.save_scan(rejection_record)
+                    except Exception:
+                        pass
             return []
 
         print(f"[*] [{scan_id}] Scope verified: {scope_res.get('vlan_name')}. Starting audit...")
@@ -433,8 +554,22 @@ class SecurityScannerEngine:
                 if is_edge_ip(ip) and ip not in host_ips and ip != "127.0.0.1":
                     candidate_hosts.add(ip)
 
-            # 2. Local testbed loopback mock IPs (127.0.0.2 to 127.0.0.16)
-            for i in range(2, 17):
+            # 2. Local testbed loopback mock IPs (dynamically discovered from fleet state, avoiding fixed hardcoded counts)
+            mock_state_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mock-object", "fleet_state.json"))
+            if os.path.exists(mock_state_file):
+                try:
+                    import json
+                    with open(mock_state_file, "r", encoding="utf-8") as f:
+                        f_state = json.load(f)
+                        for proc in f_state.get("processes", []):
+                            p_ip = proc.get("ip")
+                            if p_ip and p_ip.startswith("127.0.0."):
+                                candidate_hosts.add(p_ip)
+                except Exception:
+                    pass
+            # Dynamic exploratory bounds
+            max_loopback_probes = max(32, len(candidate_hosts) + 16)
+            for i in range(2, max_loopback_probes + 1):
                 candidate_hosts.add(f"127.0.0.{i}")
 
             # 3. Hosts from detected active edge subnets
@@ -481,22 +616,38 @@ class SecurityScannerEngine:
 
         print(f"[*] [{scan_id}] Identified {len(target_ips)} target IP(s) for deep audit: {sorted(list(target_ips))}")
 
-        # Stage 4 & 5: Deep Fingerprinting, Vulnerability Audit & Policy Evaluation
-        self.current_stage = "STAGE_4_DEEP_FINGERPRINTING_AND_AUDIT"
-        tasks = []
-        for ip in sorted(list(target_ips)):
-            mac = arp_hosts.get(ip, "")
-            tasks.append(self.scan_single_device(
+        # Stage 4: Deep Fingerprinting
+        self.current_stage = "STAGE_4_DEEP_FINGERPRINTING"
+        print(f"[*] [{scan_id}] Stage 4: Deep Fingerprinting (Ports, Banners, UPnP & mDNS)...")
+        fingerprint_tasks = [
+            self.fingerprint_device(
                 ip=ip,
-                mac=mac,
+                mac=arp_hosts.get(ip, ""),
                 mdns_info=mdns_by_ip.get(ip, []),
                 upnp_info=upnp_by_ip.get(ip)
-            ))
+            )
+            for ip in sorted(list(target_ips))
+        ]
+        raw_devices = await asyncio.gather(*fingerprint_tasks)
 
-        scanned_devices = await asyncio.gather(*tasks)
+        # Stage 5: Vulnerability & Credential Audit
+        self.current_stage = "STAGE_5_VULNERABILITY_AND_CREDENTIAL_AUDIT"
+        print(f"[*] [{scan_id}] Stage 5: Vulnerability & Credential Audit (CVE correlation & Credential testing)...")
+        audit_tasks = [
+            self.audit_device_vulnerabilities(raw_dev)
+            for raw_dev in raw_devices
+        ]
+        audit_results = await asyncio.gather(*audit_tasks)
 
-        # Stage 6: Cataloging & Presence Confirmation
-        self.current_stage = "STAGE_6_CATALOGING_AND_POLICY_SYNC"
+        # Stage 6: Declarative Policy Evaluation & Scoping
+        self.current_stage = "STAGE_6_POLICY_EVALUATION"
+        print(f"[*] [{scan_id}] Stage 6: Declarative Policy Evaluation, VLAN Scoping & Triage...")
+        scanned_devices = []
+        for raw_dev, audit_data in zip(raw_devices, audit_results):
+            full_dev = self.evaluate_device_policies(raw_dev, audit_data)
+            scanned_devices.append(full_dev)
+
+        # Stage 6 Cataloging & Presence Confirmation
         hotspot_clients = get_hotspot_active_clients()
         hotspot_macs = {c["mac"] for c in hotspot_clients}
 
@@ -540,7 +691,7 @@ class SecurityScannerEngine:
 
             # Record in scan history
             quarantined = sum(1 for d in cataloged_list if d.get("scoping_policy", {}).get("quarantine_required"))
-            self.scan_history.append({
+            completion_record = {
                 "scan_id": scan_id,
                 "target_cidr": target_cidr,
                 "start_time": self.last_scan_time,
@@ -559,7 +710,13 @@ class SecurityScannerEngine:
                     }
                     for d in cataloged_list
                 ]
-            })
+            }
+            self.scan_history.append(completion_record)
+            if self.db_manager:
+                try:
+                    self.db_manager.save_scan(completion_record)
+                except Exception:
+                    pass
 
         print(f"[+] [{scan_id}] Scan completed! {len(cataloged_list)} active IoT device(s) cataloged.")
         return cataloged_list
@@ -616,7 +773,8 @@ class SecurityScannerEngine:
         # Layer 4: ICMP Ping fallback
         param = "-n" if platform.system().lower() == "windows" else "-c"
         timeout_param = "-w" if platform.system().lower() == "windows" else "-W"
-        cmd = ["ping", param, "1", timeout_param, str(timeout_ms), ip]
+        timeout_val = str(timeout_ms) if platform.system().lower() == "windows" else str(max(1, int(timeout_ms / 1000)))
+        cmd = ["ping", param, "1", timeout_param, timeout_val, ip]
         try:
             proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=0.6)
             return proc.returncode == 0

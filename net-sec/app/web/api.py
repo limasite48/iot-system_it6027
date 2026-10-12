@@ -23,6 +23,7 @@ from app.audit.policy_engine import GLOBAL_POLICY_ENGINE
 from app.audit.cve_manager import GLOBAL_CVE_MANAGER
 from app.audit.cve_matcher import match_cves_for_device
 from app.audit.contextual_prioritizer import evaluate_device_context
+from app.db.database import GLOBAL_DB_MANAGER
 from app.discovery.network_env import (
     get_primary_edge_cidr,
     detect_active_subnets,
@@ -32,8 +33,8 @@ from app.discovery.network_env import (
 
 from contextlib import asynccontextmanager
 
-# Global engine singleton
-SCANNER = SecurityScannerEngine()
+# Global engine singleton with SQLite persistence
+SCANNER = SecurityScannerEngine(db_manager=GLOBAL_DB_MANAGER, auto_load=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,10 +44,34 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(SCANNER.execute_network_scan("ALL"))
     yield
 
+TAGS_METADATA = [
+    {
+        "name": "Subsystem 1: Network & IoT Discovery",
+        "description": "Host sweeps, active subnets, mDNS Zeroconf, UPnP SSDP, and real-time network traffic telemetry."
+    },
+    {
+        "name": "Subsystem 2: Vulnerability Assessment & Compliance",
+        "description": "CPE 2.3 normalization, CVE matching with SemVer bounds, contextual SSVC/VEX prioritization, default credential auditing, and human auditor triage workflow."
+    },
+    {
+        "name": "Subsystem 3: Platform, Orchestration & Governance",
+        "description": "Scope verification gateway, scan orchestration engine, execution history, webhook alerts, and academic governance reporting."
+    },
+    {
+        "name": "Operational Inventory & Scoping",
+        "description": "Device inventory, summary statistics, VLAN group segmentation, and real-time alerts."
+    }
+]
+
 app = FastAPI(
     title="Insecure IoT Device Detection & Management Platform",
-    description="Cybersecurity Policy and Governance (IT6027) Security Auditor",
-    version="2.0.0",
+    description="Cybersecurity Policy and Governance (IT6027) Security Auditor\n\n"
+                "Architecture decomposed into 3 core subsystems per IT6027 specifications:\n"
+                "- **Subsystem 1**: Network & IoT Discovery (`app/discovery/`)\n"
+                "- **Subsystem 2**: Vulnerability Assessment & Compliance (`app/audit/`)\n"
+                "- **Subsystem 3**: Platform, Orchestration & Governance (`app/scoping/`, `app/web/`)",
+    version="2.1.0",
+    openapi_tags=TAGS_METADATA,
     lifespan=lifespan
 )
 
@@ -77,7 +102,7 @@ class WebhookConfigRequest(BaseModel):
     webhook_url: str
     enabled: bool = True
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def serve_dashboard():
     index_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_file):
@@ -86,7 +111,7 @@ async def serve_dashboard():
     return HTMLResponse("<h1>IoT Security Dashboard Static File Missing</h1>")
 
 # Core Network & Status Endpoints
-@app.get("/api/network/info")
+@app.get("/api/network/info", tags=["Subsystem 1: Network & IoT Discovery"])
 async def get_network_info():
     """Retrieve detected active subnets, primary edge CIDR, and connected hotspot peers."""
     subnets = detect_active_subnets()
@@ -101,11 +126,11 @@ async def get_network_info():
         "hotspot_clients": hotspot_peers
     }
 
-@app.get("/api/traffic")
+@app.get("/api/traffic", tags=["Subsystem 1: Network & IoT Discovery"])
 async def get_traffic():
     return GLOBAL_TRAFFIC_METER.get_snapshot()
 
-@app.get("/api/status")
+@app.get("/api/status", tags=["Operational Inventory & Scoping"])
 async def get_status():
     edge_devices = [d for d in SCANNER.inventory.values() if is_edge_ip(d.get("ip", ""))]
     return {
@@ -119,20 +144,20 @@ async def get_status():
     }
 
 # Scope Management Endpoints (ref_1.md Module G1)
-@app.get("/api/scope/check")
+@app.get("/api/scope/check", tags=["Subsystem 3: Platform, Orchestration & Governance"])
 async def check_scope(cidr: Optional[str] = Query(None)):
     """Verifies whether target CIDR is authorized for scanning."""
     target = cidr or "ALL"
     res = GLOBAL_SCOPE_MANAGER.check_scope(target)
     return res
 
-@app.get("/api/scope/allowed")
+@app.get("/api/scope/allowed", tags=["Subsystem 3: Platform, Orchestration & Governance"])
 async def get_allowed_scopes():
     """Lists all configured and permitted edge audit boundaries."""
     return GLOBAL_SCOPE_MANAGER.get_authorized_scopes()
 
 # Scan Execution & History Endpoints (ref_1.md Module G2)
-@app.post("/api/scan")
+@app.post("/api/scan", tags=["Subsystem 3: Platform, Orchestration & Governance"])
 async def trigger_scan(req: ScanRequest, background_tasks: BackgroundTasks):
     if SCANNER.is_scanning:
         return JSONResponse({
@@ -155,12 +180,12 @@ async def trigger_scan(req: ScanRequest, background_tasks: BackgroundTasks):
     background_tasks.add_task(SCANNER.execute_network_scan, target, req.timeout)
     return {"status": "STARTED", "target": target}
 
-@app.get("/api/scans")
+@app.get("/api/scans", tags=["Subsystem 3: Platform, Orchestration & Governance"])
 async def get_scan_history():
     """Retrieve full scan execution history with stages and timestamps."""
     return list(reversed(SCANNER.scan_history))
 
-@app.get("/api/scans/{scan_id}")
+@app.get("/api/scans/{scan_id}", tags=["Subsystem 3: Platform, Orchestration & Governance"])
 async def get_scan_details(scan_id: str):
     scan = next((s for s in SCANNER.scan_history if s["scan_id"] == scan_id), None)
     if not scan:
@@ -168,12 +193,12 @@ async def get_scan_details(scan_id: str):
     return scan
 
 # Auditor Finding Triage Endpoints (ref_1.md Module F3)
-@app.get("/api/findings")
+@app.get("/api/findings", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
 async def get_findings(status: Optional[str] = Query(None)):
     """Retrieve findings with human auditor review status (PENDING / APPROVED / REJECTED)."""
     return GLOBAL_TRIAGE_MANAGER.get_findings(status_filter=status)
 
-@app.post("/api/findings/{finding_id}/triage")
+@app.post("/api/findings/{finding_id}/triage", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
 async def triage_finding(finding_id: str, req: TriageRequest):
     """Auditor updates finding status with review notes."""
     try:
@@ -189,16 +214,22 @@ async def triage_finding(finding_id: str, req: TriageRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/api/findings/stats")
+@app.get("/api/findings/stats", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
 async def get_triage_stats():
     return GLOBAL_TRIAGE_MANAGER.get_triage_stats()
 
+# Database Persistence Diagnostics Endpoint (Teacher Note 1 Item 2b)
+@app.get("/api/db/stats", tags=["Subsystem 3: Platform, Orchestration & Governance"])
+async def get_db_stats():
+    """Retrieve SQLite database metrics, table row counts, and storage diagnostic data."""
+    return GLOBAL_DB_MANAGER.get_db_stats()
+
 # Webhook Alert Dispatcher Configuration (ref_1.md Module G3)
-@app.get("/api/config/webhook")
+@app.get("/api/config/webhook", tags=["Subsystem 3: Platform, Orchestration & Governance"])
 async def get_webhook_config():
     return GLOBAL_ALERT_DISPATCHER.get_status()
 
-@app.post("/api/config/webhook")
+@app.post("/api/config/webhook", tags=["Subsystem 3: Platform, Orchestration & Governance"])
 async def configure_webhook(req: WebhookConfigRequest):
     GLOBAL_ALERT_DISPATCHER.configure(req.webhook_url, req.enabled)
     return {"status": "configured", "details": GLOBAL_ALERT_DISPATCHER.get_status()}
@@ -208,7 +239,7 @@ class CveSyncRequest(BaseModel):
     custom_cve: Optional[Dict[str, Any]] = None
 
 # CVE Multi-Feed Management & Scale-up Endpoints
-@app.get("/api/cve/database")
+@app.get("/api/cve/database", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
 async def get_cve_database():
     """Return all loaded CVE definitions and multi-feed diagnostics."""
     return {
@@ -217,7 +248,7 @@ async def get_cve_database():
         "cves": GLOBAL_CVE_MANAGER.get_all_cves()
     }
 
-@app.post("/api/cve/sync")
+@app.post("/api/cve/sync", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
 async def sync_cve_database(req: Optional[CveSyncRequest] = None):
     """Hot-reload multi-feed vulnerability database and optionally register custom scale-up CVEs."""
     if req and req.custom_cve:
@@ -229,7 +260,7 @@ async def sync_cve_database(req: Optional[CveSyncRequest] = None):
         "summary": GLOBAL_CVE_MANAGER.get_feeds_summary()
     }
 
-@app.post("/api/cve/evaluate")
+@app.post("/api/cve/evaluate", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
 async def evaluate_cve_for_device(device_payload: Dict[str, Any]):
     """Ad-hoc contextual evaluation for a device dictionary without scanning network."""
     matched_raw = match_cves_for_device(device_payload)
@@ -249,23 +280,23 @@ async def evaluate_cve_for_device(device_payload: Dict[str, Any]):
     }
 
 # Inventory & Scoping Endpoints
-@app.get("/api/devices")
+@app.get("/api/devices", tags=["Operational Inventory & Scoping"])
 async def get_devices():
     return [d for d in SCANNER.inventory.values() if is_edge_ip(d.get("ip", ""))]
 
-@app.get("/api/stats")
+@app.get("/api/stats", tags=["Operational Inventory & Scoping"])
 async def get_stats():
     return SCANNER.get_summary_statistics()
 
-@app.get("/api/alerts")
+@app.get("/api/alerts", tags=["Operational Inventory & Scoping"])
 async def get_alerts():
     return list(reversed(SCANNER.alerts))
 
-@app.get("/api/scoping")
+@app.get("/api/scoping", tags=["Operational Inventory & Scoping"])
 async def get_scoping():
     return SCANNER.get_summary_statistics().get("vlan_groups", {})
 
-@app.get("/api/report")
+@app.get("/api/report", tags=["Subsystem 3: Platform, Orchestration & Governance"])
 async def generate_markdown_report():
     """Generates an academic-grade governance audit report including CPEs, policies, and triage."""
     stats = SCANNER.get_summary_statistics()

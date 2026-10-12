@@ -198,12 +198,12 @@ def list_fleet():
             print(f"  {p.get('pid'):<8} {p.get('profile'):<20} {p.get('http_port'):<12} {p.get('rtsp_port'):<12} {p.get('start_time')}")
     print("-" * 70)
 
-def generate_compose(count: int = 3, output_path: str = None):
-    """Generate a multi-camera Docker Compose file for large-scale tests."""
+def generate_compose(count: int = 4, output_path: str = None):
+    """Generate a multi-device Docker Compose file for large-scale and flexible testbeds."""
     lines = [
         "version: '3.8'",
         "",
-        "# Auto-generated Camera Fleet Compose Stack",
+        "# Auto-generated IoT Device Fleet Compose Stack",
         "networks:",
         "  vlan10_standard_iot:",
         "    name: iot_vlan10_standard",
@@ -220,8 +220,22 @@ def generate_compose(count: int = 3, output_path: str = None):
     profiles = AVAILABLE_PROFILES
     for i in range(count):
         prof = profiles[i % len(profiles)]
-        svc_name = f"mock-camera-{i+1:02d}"
+        prof_data = load_profile(prof)
+        http_p = prof_data.get("default_http_port", 8080)
+        rtsp_p = prof_data.get("default_rtsp_port")
+        svc_name = f"mock-device-{i+1:02d}"
         ip = f"172.28.10.{20 + i}"
+
+        env_lines = [
+            f"      - CAMERA_PROFILE={prof}",
+            f"      - MOCK_IP={ip}",
+            f"      - HTTP_PORT={http_p}"
+        ]
+        if rtsp_p:
+            env_lines.append(f"      - RTSP_PORT={rtsp_p}")
+        else:
+            env_lines.append("      - RTSP_PORT=Disabled")
+
         lines.extend([
             f"  {svc_name}:",
             f"    build:",
@@ -231,8 +245,7 @@ def generate_compose(count: int = 3, output_path: str = None):
             f"    container_name: {svc_name}",
             f"    hostname: {prof.replace('_', '-')}-{i+1:02d}",
             f"    environment:",
-            f"      - CAMERA_PROFILE={prof}",
-            f"      - MOCK_IP={ip}",
+            *env_lines,
             f"    networks:",
             f"      vlan10_standard_iot:",
             f"        ipv4_address: {ip}",
@@ -244,10 +257,10 @@ def generate_compose(count: int = 3, output_path: str = None):
     target = output_path or os.path.join(CUR_DIR, "docker-compose.template.yml")
     with open(target, "w", encoding="utf-8") as f:
         f.write(content)
-    print(f"[+] Generated Docker Compose with {count} camera nodes at: {target}")
+    print(f"[+] Generated Docker Compose with {count} IoT device nodes at: {target}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Camera Fleet Manager & Scaling Orchestrator")
+    parser = argparse.ArgumentParser(description="Camera & Smart IoT Device Fleet Manager")
     subparsers = parser.add_subparsers(dest="command", help="Fleet commands")
 
     # start-fleet
@@ -267,10 +280,14 @@ def main():
     # profiles
     subparsers.add_parser("profiles", help="List available camera profiles")
 
-    # generate-compose
+    # generate-compose / compose
     sp_gen = subparsers.add_parser("generate-compose", help="Generate scaled Docker Compose file")
-    sp_gen.add_argument("--count", type=int, default=4, help="Number of camera containers")
+    sp_gen.add_argument("--count", "--devices", "--device", dest="count", type=int, default=4, help="Number of IoT device containers to generate")
     sp_gen.add_argument("--out", type=str, default=None, help="Output file path")
+
+    sp_gen_alias = subparsers.add_parser("compose", help="Generate scaled Docker Compose file (alias)")
+    sp_gen_alias.add_argument("--count", "--devices", "--device", dest="count", type=int, default=4, help="Number of IoT device containers to generate")
+    sp_gen_alias.add_argument("--out", type=str, default=None, help="Output file path")
 
     args = parser.parse_args()
 
@@ -288,7 +305,7 @@ def main():
             print(f"  * [{p['id']}] {p['name']}")
             print(f"    Vendor: {p['vendor']} | Model: {p['model']} | Auth: {p['auth_type']}")
             print(f"    Posture: {p['posture']}\n")
-    elif args.command == "generate-compose":
+    elif args.command in ["generate-compose", "compose"]:
         generate_compose(count=args.count, output_path=args.out)
     else:
         parser.print_help()

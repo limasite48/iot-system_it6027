@@ -68,9 +68,38 @@ class FindingRecord:
         }
 
 class AuditorTriageManager:
-    def __init__(self):
+    def __init__(self, db_manager=None, auto_load: bool = False):
         self._lock = threading.RLock()
         self._findings: Dict[str, FindingRecord] = {}
+        self.db_manager = db_manager
+        if auto_load and self.db_manager:
+            self._load_from_db()
+
+    def _load_from_db(self):
+        if self.db_manager:
+            try:
+                saved = self.db_manager.load_all_triage_findings()
+                for item in saved:
+                    rec = FindingRecord(
+                        target_ip=item.get("target_ip", ""),
+                        finding_type=item.get("finding_type", "GENERAL"),
+                        title=item.get("title", ""),
+                        severity=item.get("severity", "MEDIUM"),
+                        details=item.get("details", ""),
+                        remediation=item.get("remediation", ""),
+                        finding_id=item.get("finding_id"),
+                        port=item.get("port"),
+                        cve_id=item.get("cve_id"),
+                        rule_id=item.get("rule_id")
+                    )
+                    rec.status = item.get("status", "PENDING")
+                    rec.auditor_notes = item.get("auditor_notes", "")
+                    rec.reviewed_by = item.get("reviewed_by", "")
+                    rec.reviewed_at = item.get("reviewed_at")
+                    rec.created_at = item.get("created_at", datetime.now().isoformat())
+                    self._findings[rec.finding_id] = rec
+            except Exception:
+                pass
 
     def _generate_fingerprint_key(self, ip: str, finding_type: str, identifier: str) -> str:
         """Deduplication key across scan cycles."""
@@ -107,6 +136,11 @@ class AuditorTriageManager:
                     existing.exploitability = exploitability
                 if ssvc_action:
                     existing.ssvc_action = ssvc_action
+                if self.db_manager:
+                    try:
+                        self.db_manager.save_triage_finding(existing.to_dict())
+                    except Exception:
+                        pass
                 return existing
 
             record = FindingRecord(
@@ -127,6 +161,11 @@ class AuditorTriageManager:
                 ssvc_action=ssvc_action
             )
             self._findings[record.finding_id] = record
+            if self.db_manager:
+                try:
+                    self.db_manager.save_triage_finding(record.to_dict())
+                except Exception:
+                    pass
             return record
 
     def triage_finding(self, finding_id: str, new_status: str, 
@@ -144,6 +183,11 @@ class AuditorTriageManager:
             record.auditor_notes = auditor_notes
             record.reviewed_by = reviewer
             record.reviewed_at = datetime.now().isoformat()
+            if self.db_manager:
+                try:
+                    self.db_manager.save_triage_finding(record.to_dict())
+                except Exception:
+                    pass
             return record.to_dict()
 
     def get_findings(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -173,4 +217,11 @@ class AuditorTriageManager:
         with self._lock:
             self._findings.clear()
 
-GLOBAL_TRIAGE_MANAGER = AuditorTriageManager()
+def _create_global_triage_manager():
+    try:
+        from app.db.database import GLOBAL_DB_MANAGER
+        return AuditorTriageManager(db_manager=GLOBAL_DB_MANAGER, auto_load=True)
+    except Exception:
+        return AuditorTriageManager()
+
+GLOBAL_TRIAGE_MANAGER = _create_global_triage_manager()

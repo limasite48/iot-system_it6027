@@ -32,7 +32,8 @@ def print_banner():
 
 async def run_cli_scan(target_cidr: str = None):
     print_banner()
-    engine = SecurityScannerEngine()
+    from app.db.database import GLOBAL_DB_MANAGER
+    engine = SecurityScannerEngine(db_manager=GLOBAL_DB_MANAGER, auto_load=True)
     print(f"[*] Commencing security audit scan (Target: {target_cidr or 'Local Hotspot Subnet'})...")
     devices = await engine.execute_network_scan(target_cidr=target_cidr)
     stats = engine.get_summary_statistics()

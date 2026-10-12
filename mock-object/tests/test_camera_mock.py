@@ -166,7 +166,7 @@ def test_fleet_manager_generate_compose(tmp_path):
     assert os.path.exists(compose_path)
     with open(compose_path, "r", encoding="utf-8") as f:
         content = f.read()
-    assert "mock-camera-01:" in content
-    assert "mock-camera-02:" in content
-    assert "mock-camera-03:" in content
+    assert ("mock-device-01:" in content or "mock-camera-01:" in content)
+    assert ("mock-device-02:" in content or "mock-camera-02:" in content)
+    assert ("mock-device-03:" in content or "mock-camera-03:" in content)
     assert "vlan10_standard_iot:" in content

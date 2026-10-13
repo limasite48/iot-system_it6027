@@ -8,6 +8,8 @@ from typing import List, Dict, Any
 
 SUBNET_VLAN_MAP = {
     "192.168.137.0/24": {"vlan_id": 100, "name": "VLAN 100 - Physical Edge WLAN (Hotspot)"},
+    "172.20.10.0/28":   {"vlan_id": 100, "name": "VLAN 100 - iPhone Personal Hotspot WLAN"},
+    "192.168.43.0/24":  {"vlan_id": 100, "name": "VLAN 100 - Android Wi-Fi Hotspot WLAN"},
     "172.28.10.0/24":   {"vlan_id": 10,  "name": "VLAN 10 - Standard IoT Operational Subnet"},
     "172.28.99.0/24":   {"vlan_id": 99,  "name": "VLAN 99 - IoT Quarantine & Isolation Subnet"},
     "127.0.0.0/24":     {"vlan_id": 10,  "name": "VLAN 10 - Local IoT Testbed Emulation"},

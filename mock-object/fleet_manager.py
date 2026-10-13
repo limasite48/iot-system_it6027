@@ -11,10 +11,59 @@ import sys
 import os
 import time
 import json
+import socket
+import platform
 import argparse
 import signal
 import subprocess
 from typing import List, Dict, Any
+
+
+def ensure_loopback_aliases(count: int) -> None:
+    """
+    Ensure loopback aliases 127.0.0.2 .. 127.0.0.(count+1) are bindable.
+
+    Linux routes the whole 127.0.0.0/8 block to loopback, so aliases are never
+    needed there. macOS/BSD only bind 127.0.0.1 by default, so the mock fleet
+    (which listens on 127.0.0.2+) requires explicit `ifconfig lo0 alias` entries.
+    This best-effort helper creates any missing alias; if it lacks privileges it
+    prints the exact one-time command for the user and continues.
+    """
+    if platform.system() not in ("Darwin", "FreeBSD", "OpenBSD", "NetBSD"):
+        return
+
+    missing = []
+    for i in range(count):
+        ip = f"127.0.0.{2 + i}"
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind((ip, 0))
+        except OSError:
+            missing.append(ip)
+        finally:
+            s.close()
+
+    if not missing:
+        return
+
+    created = []
+    for ip in missing:
+        # `sudo -n` never prompts: it succeeds only with cached/passwordless sudo.
+        rc = subprocess.run(
+            ["sudo", "-n", "ifconfig", "lo0", "alias", ip, "up"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ).returncode
+        if rc == 0:
+            created.append(ip)
+
+    if created:
+        print(f"  [+] Created loopback aliases: {', '.join(created)}")
+
+    still_missing = [ip for ip in missing if ip not in created]
+    if still_missing:
+        print("  [!] macOS needs loopback aliases for the mock fleet but they are missing.")
+        print("      Run this ONCE (persists until reboot), then start the platform again:")
+        print("        " + " && ".join(f"sudo ifconfig lo0 alias {ip} up" for ip in still_missing))
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 ENGINE_DIR = os.path.join(CUR_DIR, "engine")
@@ -98,6 +147,9 @@ def start_fleet(count: int = 4, mixed: bool = True, use_loopback_ips: bool = Tru
     print("=" * 70)
     print(f"      Launching IoT Device Fleet ({count} instances)")
     print("=" * 70)
+
+    if use_loopback_ips:
+        ensure_loopback_aliases(count)
 
     state = load_state()
     active_procs = state.get("processes", [])

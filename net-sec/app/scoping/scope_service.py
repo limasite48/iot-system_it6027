@@ -18,6 +18,18 @@ DEFAULT_AUTHORIZED_SCOPES = [
         "description": "Windows SoftAP edge Wi-Fi for smartphones and physical IoT cameras."
     },
     {
+        "cidr": "172.20.10.0/28",
+        "name": "iPhone Personal Hotspot WLAN (VLAN 100)",
+        "vlan_id": 100,
+        "description": "Apple iOS Personal Hotspot edge Wi-Fi for smartphones and physical IoT devices."
+    },
+    {
+        "cidr": "192.168.43.0/24",
+        "name": "Android Wi-Fi Hotspot WLAN (VLAN 100)",
+        "vlan_id": 100,
+        "description": "Android Wi-Fi tethering edge network for smartphones and physical IoT devices."
+    },
+    {
         "cidr": "172.28.10.0/24",
         "name": "Standard Operational IoT Subnet (VLAN 10)",
         "vlan_id": 10,

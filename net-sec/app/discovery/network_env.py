@@ -23,6 +23,12 @@ def get_host_ips() -> Set[str]:
         for _, addrs in psutil.net_if_addrs().items():
             for a in addrs:
                 if a.family == socket.AF_INET:
+                    # On macOS/BSD the local testbed uses loopback aliases (127.0.0.2+)
+                    # which register as real interface addresses. Do NOT treat them as
+                    # "self" here, or the scanner would exclude the mock fleet from its
+                    # target pool. 127.0.0.1 stays excluded (added explicitly above).
+                    if a.address.startswith("127.") and a.address != "127.0.0.1":
+                        continue
                     host_ips.add(a.address)
     except Exception:
         pass
@@ -58,8 +64,10 @@ def detect_active_subnets() -> List[Dict[str, Any]]:
                 is_hotspot = (
                     "Local Area Connection" in iface_name or
                     "Hotspot" in iface_name.lower() or
-                    ip.startswith("192.168.137.") or
-                    ip.startswith("192.168.173.")
+                    ip.startswith("192.168.137.") or   # Windows Mobile Hotspot
+                    ip.startswith("192.168.173.") or
+                    ip.startswith("172.20.10.") or      # iPhone Personal Hotspot (172.20.10.0/28)
+                    ip.startswith("192.168.43.")        # Android Wi-Fi Hotspot (192.168.43.0/24)
                 )
                 is_docker_iot = (
                     ip.startswith("172.28.10.") or
@@ -109,7 +117,7 @@ def is_edge_ip(ip_str: str) -> bool:
     """Check if an IP belongs to an IoT Edge subnet rather than upstream WAN."""
     try:
         ip_obj = ipaddress.ip_address(ip_str)
-        edge_cidrs = ["192.168.137.0/24", "192.168.173.0/24", "172.28.10.0/24", "172.28.99.0/24", "127.0.0.0/24"]
+        edge_cidrs = ["192.168.137.0/24", "192.168.173.0/24", "172.20.10.0/28", "192.168.43.0/24", "172.28.10.0/24", "172.28.99.0/24", "127.0.0.0/24"]
         for s in detect_active_subnets():
             if s.get("is_edge"):
                 edge_cidrs.append(s["cidr"])

@@ -7,23 +7,37 @@ Powered by the modular Camera Emulation Engine.
 
 import os
 import sys
+import importlib.util
 from http.server import HTTPServer
 
-# Add engine directory to sys.path
-ENGINE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "engine"))
-if ENGINE_DIR not in sys.path:
-    sys.path.insert(0, ENGINE_DIR)
+# Locate engine directory (supports both repo structure and Docker /app structure)
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+_repo_engine = os.path.abspath(os.path.join(_base_dir, "..", "..", "engine"))
+_docker_engine = os.path.abspath(os.path.join(_base_dir, "engine"))
 
-from camera_server import (
-    load_profile,
-    generate_upnp_xml,
-    DynamicCameraHTTPHandler,
-    DynamicCameraRTSPServer,
-    DynamicSSDPResponder,
-    DynamicMDNSAdvertiser,
-    CameraServer,
-    DEFAULT_PROFILE
-)
+if os.path.isdir(_repo_engine):
+    ENGINE_DIR = _repo_engine
+elif os.path.isdir(_docker_engine):
+    ENGINE_DIR = _docker_engine
+else:
+    ENGINE_DIR = _repo_engine
+
+_engine_file = os.path.join(ENGINE_DIR, "camera_server.py")
+if not os.path.isfile(_engine_file):
+    raise FileNotFoundError(f"Cannot find camera emulation engine at {_engine_file}")
+
+_spec = importlib.util.spec_from_file_location("camera_engine_core", _engine_file)
+_engine_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_engine_mod)
+
+load_profile = _engine_mod.load_profile
+generate_upnp_xml = _engine_mod.generate_upnp_xml
+DynamicCameraHTTPHandler = _engine_mod.DynamicCameraHTTPHandler
+DynamicCameraRTSPServer = _engine_mod.DynamicCameraRTSPServer
+DynamicSSDPResponder = _engine_mod.DynamicSSDPResponder
+DynamicMDNSAdvertiser = _engine_mod.DynamicMDNSAdvertiser
+CameraServer = _engine_mod.CameraServer
+DEFAULT_PROFILE = _engine_mod.DEFAULT_PROFILE
 
 # Backward-compatible CameraHTTPHandler for test_integration.py
 class CameraHTTPHandler(DynamicCameraHTTPHandler):
@@ -49,8 +63,13 @@ if __name__ == "__main__":
     http_env = os.environ.get("HTTP_PORT", "")
     http_port = int(http_env) if http_env and http_env.isdigit() else None
     rtsp_env = os.environ.get("RTSP_PORT", "")
+    rtsp_disabled = rtsp_env.lower() in ("disabled", "none", "false", "0", "off")
     rtsp_port = int(rtsp_env) if rtsp_env and rtsp_env.isdigit() else None
     bind_ip = os.environ.get("BIND_IP", "0.0.0.0")
 
-    server = CameraServer(profile_name_or_dict=profile_name, http_port=http_port, rtsp_port=rtsp_port, ip=bind_ip)
+    prof = load_profile(profile_name)
+    if rtsp_disabled:
+        prof["rtsp_enabled"] = False
+
+    server = CameraServer(profile_name_or_dict=prof, http_port=http_port, rtsp_port=rtsp_port, ip=bind_ip)
     server.start(blocking=True)

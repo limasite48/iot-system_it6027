@@ -67,7 +67,8 @@ def detect_active_subnets() -> List[Dict[str, Any]]:
                     ip.startswith("192.168.137.") or   # Windows Mobile Hotspot
                     ip.startswith("192.168.173.") or
                     ip.startswith("172.20.10.") or      # iPhone Personal Hotspot (172.20.10.0/28)
-                    ip.startswith("192.168.43.")        # Android Wi-Fi Hotspot (192.168.43.0/24)
+                    ip.startswith("192.168.43.") or     # Android Wi-Fi Hotspot (192.168.43.0/24)
+                    ip.startswith("192.168.31.")        # Xiaomi/MIUI & other phone hotspots (192.168.31.0/24)
                 )
                 is_docker_iot = (
                     ip.startswith("172.28.10.") or
@@ -117,7 +118,7 @@ def is_edge_ip(ip_str: str) -> bool:
     """Check if an IP belongs to an IoT Edge subnet rather than upstream WAN."""
     try:
         ip_obj = ipaddress.ip_address(ip_str)
-        edge_cidrs = ["192.168.137.0/24", "192.168.173.0/24", "172.20.10.0/28", "192.168.43.0/24", "172.28.10.0/24", "172.28.99.0/24", "127.0.0.0/24"]
+        edge_cidrs = ["192.168.137.0/24", "192.168.173.0/24", "172.20.10.0/28", "192.168.43.0/24", "192.168.31.0/24", "172.28.10.0/24", "172.28.99.0/24", "127.0.0.0/24"]
         for s in detect_active_subnets():
             if s.get("is_edge"):
                 edge_cidrs.append(s["cidr"])

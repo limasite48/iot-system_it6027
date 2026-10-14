@@ -1,0 +1,28 @@
+{
+  "profile_id": "tplink_hs110_plug",
+  "name": "TP-Link HS110 Kasa Smart Plug",
+  "vendor": "TP-Link",
+  "model": "HS110 Kasa Smart Plug",
+  "firmware": "1.1.0",
+  "serial": "TPLINKHS1102026",
+  "device_category": "Smart Plug",
+  "default_http_port": 9999,
+  "default_rtsp_port": null,
+  "http_server_banner": "TP-Link Smart Plug HS110 / Kasa",
+  "auth_type": "basic",
+  "auth_realm": "TP-Link HS110 Kasa Smart Plug",
+  "credentials": [
+    {"username": "admin", "password": "admin"},
+    {"username": "admin", "password": "1234"}
+  ],
+  "is_open_access": false,
+  "rtsp_enabled": false,
+  "ssdp_enabled": true,
+  "ssdp_device_type": "urn:schemas-upnp-org:device:controllee:1",
+  "ssdp_server_banner": "Linux/3.10 UPnP/1.0 TP-Link-SmartPlug/1.1",
+  "mdns_enabled": true,
+  "mdns_service_name": "TP-Link-HS110-SmartPlug",
+  "stream_endpoints": ["/relay/state", "/sysinfo", "/emeter/realtime"],
+  "security_posture": "Vulnerable (Default Credentials & Unauthenticated Relay Control CVE-2019-14923)",
+  "cve_simulations": ["CVE-2019-14923"]
+}

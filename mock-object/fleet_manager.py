@@ -80,7 +80,9 @@ AVAILABLE_PROFILES = [
     "dlink_dcs932l",
     # 2. Safety Smart TV (Sony BRAVIA 4K, TLS, Compliant Baseline, 0 CVEs)
     "hardened_sony_tv",
-    # 3. Vulnerable Smart AC (Daikin Inverter AC, Unauthenticated REST Control & CVE-2021-38144)
+    # 3. Vulnerable Smart Plug (TP-Link HS110 Kasa, Default Credentials & CVE-2019-14923 on port 9999)
+    "tplink_hs110_plug",
+    # 4. Vulnerable Smart AC (Daikin Inverter AC, Unauthenticated REST Control & CVE-2021-38144)
     "daikin_smart_ac",
     # 4. Safety IP Camera (ProSafe Enterprise Camera, Unique Credentials, Compliant Baseline, 0 CVEs)
     "hardened_cam",

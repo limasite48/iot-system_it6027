@@ -17,6 +17,7 @@ def grab_http_banner(ip: str, port: int, timeout: float = 1.5) -> Dict[str, Any]
         "auth_realm": "",
         "title": "",
         "powered_by": "",
+        "firmware": "",
         "raw_headers": {}
     }
     schemes = ["http"]
@@ -47,6 +48,21 @@ def grab_http_banner(ip: str, port: int, timeout: float = 1.5) -> Dict[str, Any]
                 title_match = re.search(r"<title>(.*?)</title>", resp.text, re.IGNORECASE | re.DOTALL)
                 if title_match:
                     banner_info["title"] = title_match.group(1).strip()
+
+                # Extract firmware/version exposed in the response body or Server banner.
+                # Many IoT web UIs print "Firmware: x.y.z"; embedded servers also encode a
+                # version in the Server header (e.g. "GoAhead-Webs/2.5"). This populates the
+                # device firmware so CVE version-range matching can actually be enforced.
+                fw_match = re.search(
+                    r"(?:firmware|fw|version)[\s:=v]*([0-9]+(?:\.[0-9A-Za-z]+){1,4})",
+                    resp.text, re.IGNORECASE
+                )
+                if fw_match:
+                    banner_info["firmware"] = fw_match.group(1)
+                elif banner_info["server"]:
+                    srv_match = re.search(r"/v?([0-9]+(?:\.[0-9A-Za-z]+){1,4})", banner_info["server"])
+                    if srv_match:
+                        banner_info["firmware"] = srv_match.group(1)
                 return banner_info
         except Exception:
             continue

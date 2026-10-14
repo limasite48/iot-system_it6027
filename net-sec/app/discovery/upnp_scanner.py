@@ -82,8 +82,12 @@ def discover_upnp_devices(timeout_seconds: float = 3.0) -> List[Dict[str, Any]]:
         except Exception:
             pass
 
-        # Fallback default broadcast
-        sock.sendto(MSEARCH_QUERY.encode("utf-8"), (SSDP_ADDR, SSDP_PORT))
+        # Fallback default broadcast. Guarded: on macOS/BSD a host with no active
+        # multicast route raises "No route to host", which must not abort the whole scan.
+        try:
+            sock.sendto(MSEARCH_QUERY.encode("utf-8"), (SSDP_ADDR, SSDP_PORT))
+        except OSError:
+            pass
         start_time = time.time()
 
         while time.time() - start_time < timeout_seconds:

@@ -191,6 +191,14 @@ class SecurityScannerEngine:
                 upnp_info = fallback_info
 
         model = upnp_meta.get("model_name", "")
+        # Resolve device firmware so CVE version-range evaluation can be enforced.
+        # Priority: UPnP descriptor firmwareVersion -> any HTTP banner firmware string.
+        firmware = upnp_meta.get("firmware_version", "") or upnp_meta.get("model_number", "")
+        if not firmware:
+            for b_info in banners.values():
+                if isinstance(b_info, dict) and b_info.get("firmware"):
+                    firmware = b_info["firmware"]
+                    break
         mfr = upnp_meta.get("manufacturer")
         if mfr and mfr != "Unknown" and (not vendor or vendor in ["Unknown", "Virtual IoT Testbed Node"]):
             vendor = mfr
@@ -225,6 +233,7 @@ class SecurityScannerEngine:
             "mac": mac,
             "vendor": vendor,
             "model": model,
+            "firmware": firmware,
             "open_ports": open_ports,
             "banners": banners,
             "upnp_meta": upnp_meta,

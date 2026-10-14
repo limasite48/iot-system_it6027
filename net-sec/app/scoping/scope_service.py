@@ -30,6 +30,12 @@ DEFAULT_AUTHORIZED_SCOPES = [
         "description": "Android Wi-Fi tethering edge network for smartphones and physical IoT devices."
     },
     {
+        "cidr": "192.168.31.0/24",
+        "name": "Xiaomi/MIUI Phone Hotspot WLAN (VLAN 100)",
+        "vlan_id": 100,
+        "description": "Xiaomi/MIUI (and similar) phone Wi-Fi hotspot edge network for smartphones and physical IoT devices."
+    },
+    {
         "cidr": "172.28.10.0/24",
         "name": "Standard Operational IoT Subnet (VLAN 10)",
         "vlan_id": 10,

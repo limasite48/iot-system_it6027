@@ -2,7 +2,8 @@
 Default Credential & Authentication Auditing Engine (net-sec)
 Non-destructively audits discovered IoT endpoints against predefined default credentials
 and identifies unauthenticated open-access services (cameras, dashboards, control panels).
-Supports HTTP Basic Auth, HTTP Digest Auth (Android IP Webcam), and Web Form Auth.
+Supports HTTP Basic Auth, HTTP Digest Auth (Android IP Webcam), Web Form Auth,
+Telnet, RTSP, FTP (anonymous + default creds), and SSH default-credential auditing.
 """
 
 import os
@@ -10,6 +11,7 @@ import re
 import socket
 import base64
 import time
+import ftplib
 import httpx
 from typing import List, Dict, Tuple, Any, Optional
 
@@ -337,6 +339,128 @@ def test_telnet_auth(ip: str, port: int, creds: List[Tuple[str, str]], timeout: 
                 pass
     return {"auth_required": True, "matched_credential": None, "is_open_access": False}
 
+def test_ftp_auth(ip: str, port: int, creds: List[Tuple[str, str]],
+                  timeout: float = 2.0, max_attempts: int = 25) -> Dict[str, Any]:
+    """
+    Non-destructively audit an FTP service (port 21) for anonymous access and
+    publicly-known default credentials using the stdlib ftplib client.
+    """
+    # Verify the port is actually reachable first (fast fail).
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        probe.settimeout(timeout)
+        probe.connect((ip, port))
+        probe.close()
+    except Exception:
+        return {"auth_required": True, "matched_credential": None, "is_open_access": False}
+
+    # 1. Anonymous login = open access violation (no password required).
+    try:
+        ftp = ftplib.FTP()
+        ftp.connect(ip, port, timeout=timeout)
+        ftp.login()  # defaults to anonymous
+        try:
+            ftp.quit()
+        except Exception:
+            ftp.close()
+        return {
+            "auth_required": False,
+            "matched_credential": "anonymous (No Password)",
+            "service": f"FTP ({port})",
+            "is_open_access": True,
+            "description": f"Anonymous FTP login permitted on port {port}: file store exposed without authentication."
+        }
+    except Exception:
+        pass
+
+    # 2. Default credential dictionary.
+    for user, pwd in creds[:max_attempts]:
+        try:
+            ftp = ftplib.FTP()
+            ftp.connect(ip, port, timeout=timeout)
+            ftp.login(user, pwd)
+            try:
+                ftp.quit()
+            except Exception:
+                ftp.close()
+            return {
+                "auth_required": True,
+                "matched_credential": f"{user}:{pwd}",
+                "service": f"FTP ({port})",
+                "is_open_access": False,
+                "description": f"Publicly known default FTP credential accepted on port {port}: {user}:{pwd}"
+            }
+        except ftplib.error_perm:
+            continue  # wrong credentials; keep trying
+        except Exception:
+            break  # connection/protocol error; stop probing this service
+    return {"auth_required": True, "matched_credential": None, "is_open_access": False}
+
+
+def test_ssh_auth(ip: str, port: int, creds: List[Tuple[str, str]],
+                  timeout: float = 2.0, max_attempts: int = 15) -> Dict[str, Any]:
+    """
+    Non-destructively audit an SSH service (port 22) for default credentials.
+    Uses paramiko when available for real password-auth testing; otherwise
+    gracefully degrades to banner detection and reports the exposed service.
+    """
+    # Grab the SSH identification banner (works without any external library).
+    banner = ""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((ip, port))
+        banner = s.recv(256).decode("utf-8", errors="ignore").strip()
+        s.close()
+    except Exception:
+        return {"auth_required": True, "matched_credential": None, "is_open_access": False}
+
+    try:
+        import paramiko
+    except ImportError:
+        # No SSH library: we can still flag the exposed service for the auditor.
+        return {
+            "auth_required": True,
+            "matched_credential": None,
+            "service": f"SSH ({port})",
+            "is_open_access": False,
+            "ssh_banner": banner,
+            "description": (f"SSH service exposed on port {port} ({banner or 'unknown banner'}). "
+                           f"Install 'paramiko' to enable automated default-credential testing.")
+        }
+
+    logging_mod = __import__("logging")
+    logging_mod.getLogger("paramiko").setLevel(logging_mod.CRITICAL)
+
+    for user, pwd in creds[:max_attempts]:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            client.connect(
+                ip, port=port, username=user, password=pwd, timeout=timeout,
+                banner_timeout=timeout, auth_timeout=timeout,
+                allow_agent=False, look_for_keys=False
+            )
+            return {
+                "auth_required": True,
+                "matched_credential": f"{user}:{pwd}",
+                "service": f"SSH ({port})",
+                "is_open_access": False,
+                "ssh_banner": banner,
+                "description": f"Publicly known default SSH credential accepted on port {port}: {user}:{pwd}"
+            }
+        except paramiko.AuthenticationException:
+            continue  # wrong credentials; keep trying
+        except Exception:
+            break  # unreachable / handshake error; stop probing this service
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
+    return {"auth_required": True, "matched_credential": None, "is_open_access": False, "ssh_banner": banner}
+
+
 def test_device_credentials(ip: str, open_ports: List[int]) -> Dict[str, Any]:
     """
     Audit all discovered services on an IoT device against the predefined dictionary
@@ -353,14 +477,20 @@ def test_device_credentials(ip: str, open_ports: List[int]) -> Dict[str, Any]:
 
     for p in ports_to_test:
         res = None
-        # 1. Telnet
-        if p == 23:
+        # 1. FTP
+        if p == 21:
+            res = test_ftp_auth(ip, p, creds)
+        # 2. SSH
+        elif p == 22:
+            res = test_ssh_auth(ip, p, creds)
+        # 3. Telnet
+        elif p == 23:
             res = test_telnet_auth(ip, p, creds)
-        # 2. RTSP Video Streaming
+        # 4. RTSP Video Streaming
         elif p == 554:
             res = test_rtsp_auth(ip, p, creds)
-        # 3. HTTP / HTTPS and Web services (Port 80, 8080, 8081, 5000, 9999, etc.)
-        elif p not in [21, 22, 1883]:
+        # 5. HTTP / HTTPS and Web services (Port 80, 8080, 8081, 5000, 9999, etc.)
+        elif p not in [1883]:
             res = test_http_auth(ip, p, creds)
 
         if res and res.get("matched_credential"):

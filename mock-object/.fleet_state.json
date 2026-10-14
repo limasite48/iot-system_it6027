@@ -1,0 +1,36 @@
+{
+  "processes": [
+    {
+      "pid": 60589,
+      "profile": "dlink_dcs932l",
+      "ip": "127.0.0.2",
+      "http_port": 8080,
+      "rtsp_port": 554,
+      "start_time": "2026-10-15T01:20:38"
+    },
+    {
+      "pid": 60592,
+      "profile": "hardened_sony_tv",
+      "ip": "127.0.0.3",
+      "http_port": 8443,
+      "rtsp_port": "Disabled",
+      "start_time": "2026-10-15T01:20:38"
+    },
+    {
+      "pid": 60593,
+      "profile": "tplink_hs110_plug",
+      "ip": "127.0.0.4",
+      "http_port": 9999,
+      "rtsp_port": "Disabled",
+      "start_time": "2026-10-15T01:20:39"
+    },
+    {
+      "pid": 60598,
+      "profile": "daikin_smart_ac",
+      "ip": "127.0.0.5",
+      "http_port": 80,
+      "rtsp_port": "Disabled",
+      "start_time": "2026-10-15T01:20:39"
+    }
+  ]
+}

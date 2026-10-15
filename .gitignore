@@ -1,5 +1,8 @@
 # draft for agents
-_antigravity/
+_antigravity/ref_1.md
+_antigravity/teacher_note_1.md
+_antigravity/security-system-diagram.svg
+_antigravity/CVE_draft.md
 
 # Byte-compiled / optimized / Python runtime
 __pycache__/

@@ -1,0 +1,99 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="dYBTl4hX56ZqEwjP6Lgn">
+    <mxGraphModel dx="2663" dy="996" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <UserObject label="" mermaidData="{&#xa;  &quot;data&quot;: &quot;flowchart LR\n    subgraph VLAN10[\&quot;VLAN 10 (Mạng Vận hành - 172.28.10.0/24)\&quot;]\n        Cam1[\&quot;Node 1: D-Link DCS-932L\\n(172.28.10.20 - Cổng 8080/554)\&quot;]\n        TV2[\&quot;Node 2: Sony BRAVIA TV\\n(172.28.10.21 - Cổng 8001)\&quot;]\n        AC3[\&quot;Node 3: Daikin Smart AC\\n(172.28.10.22 - Cổng 80)\&quot;]\n        Cam4[\&quot;Node 4: ProSafe Cam\\n(172.28.10.23 - Cổng 8443/554)\&quot;]\n    end\n\n    subgraph Scanner[\&quot;Máy chủ Kiểm toán (172.28.10.90)\&quot;]\n        Engine[\&quot;SecurityScannerEngine\\n(Web UI: localhost:8000)\&quot;]\n    end\n\n    subgraph VLAN99[\&quot;VLAN 99 (Mạng Cách ly - 172.28.99.0/24)\&quot;]\n        QuarantineNode[\&quot;Cổng Switch Cách ly\\n(Cô lập thiết bị vi phạm)\&quot;]\n    end\n\n    Engine --&gt;|1. Quét &amp; Phát hiện vi phạm| VLAN10\n    Engine --&gt;|2. Đề xuất cách ly Node 1 &amp; Node 3| QuarantineNode\n    QuarantineNode -.-&gt;|3. Kiểm toán viên duyệt chuyển cổng| Cam1&quot;,&#xa;  &quot;config&quot;: null,&#xa;  &quot;version&quot;: &quot;12&quot;&#xa;}" id="y4GLPfj40D3b9R_YEBVu-1">
+          <mxCell connectable="0" parent="1" style="group;transparentBounds=1;editIcon=1;lockedGroup=0;groupPadding=10;" vertex="1">
+            <mxGeometry as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="VLAN 99 (Mạng Cách ly - 172.28.99.0/24)" mermaidId="n:VLAN99" mermaidBaseStyle="html=1;whiteSpace=nowrap;strokeWidth=1;verticalAlign=top;fillColor=#FFF7ED;strokeColor=#FB923C;fontColor=#000000;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="VLAN 99 (Mạng Cách ly - 172.28.99.0/24)" id="y4GLPfj40D3b9R_YEBVu-2">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-1" style="html=1;whiteSpace=nowrap;strokeWidth=1;verticalAlign=top;fillColor=#FFF7ED;strokeColor=light-dark(#FB923C, #ff0000);fontColor=#000000;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="159" width="293" x="613" y="590" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Cổng Switch Cách ly&#xa;(Cô lập thiết bị vi phạm)" mermaidId="n:QuarantineNode" mermaidBaseStyle="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="Cổng Switch Cách ly&#xa;(Cô lập thiết bị vi phạm)" id="y4GLPfj40D3b9R_YEBVu-3">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-2" style="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;labelWidth=120;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="87" width="152" x="70.5" y="48" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Máy chủ Kiểm toán (172.28.10.90)" mermaidId="n:Scanner" mermaidBaseStyle="html=1;whiteSpace=nowrap;strokeWidth=1;verticalAlign=top;fillColor=#F0FDFA;strokeColor=#2DD4BF;fontColor=#000000;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="Máy chủ Kiểm toán (172.28.10.90)" id="y4GLPfj40D3b9R_YEBVu-4">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-1" style="html=1;whiteSpace=nowrap;strokeWidth=1;verticalAlign=top;fillColor=#F0FDFA;strokeColor=light-dark(#2DD4BF, #00aaff);fontColor=#000000;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="159" width="285" x="-10" y="519" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="SecurityScannerEngine&#xa;(Web UI: localhost:8000)" mermaidId="n:Engine" mermaidBaseStyle="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="SecurityScannerEngine&#xa;(Web UI: localhost:8000)" id="y4GLPfj40D3b9R_YEBVu-5">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-4" style="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;labelWidth=120;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="87" width="176.81632653061223" x="59.99836734693877" y="48" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="VLAN 10 (Mạng Vận hành - 172.28.10.0/24)" mermaidId="n:VLAN10" mermaidBaseStyle="html=1;whiteSpace=nowrap;strokeWidth=1;verticalAlign=top;fillColor=#FDF4FF;strokeColor=#E879F9;fontColor=#000000;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="VLAN 10 (Mạng Vận hành - 172.28.10.0/24)" id="y4GLPfj40D3b9R_YEBVu-6">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-1" style="html=1;whiteSpace=nowrap;strokeWidth=1;verticalAlign=top;fillColor=#FDF4FF;strokeColor=light-dark(#E879F9,#33FF99);fontColor=#000000;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="674" width="307" x="1262" y="30" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Node 1: D-Link DCS-932L&#xa;(172.28.10.20 - Cổng 8080/554)" mermaidId="n:Cam1" mermaidBaseStyle="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="Node 1: D-Link DCS-932L&#xa;(172.28.10.20 - Cổng 8080/554)" id="y4GLPfj40D3b9R_YEBVu-7">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-6" style="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;labelWidth=120;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="129" width="152" x="77.5" y="521" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Node 2: Sony BRAVIA TV&#xa;(172.28.10.21 - Cổng 8001)" mermaidId="n:TV2" mermaidBaseStyle="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="Node 2: Sony BRAVIA TV&#xa;(172.28.10.21 - Cổng 8001)" id="y4GLPfj40D3b9R_YEBVu-8">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-6" style="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;labelWidth=120;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="108" width="152" x="77.5" y="364" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Node 3: Daikin Smart AC&#xa;(172.28.10.22 - Cổng 80)" mermaidId="n:AC3" mermaidBaseStyle="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="Node 3: Daikin Smart AC&#xa;(172.28.10.22 - Cổng 80)" id="y4GLPfj40D3b9R_YEBVu-9">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-6" style="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;labelWidth=120;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="108" width="152" x="77.5" y="206" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Node 4: ProSafe Cam&#xa;(172.28.10.23 - Cổng 8443/554)" mermaidId="n:Cam4" mermaidBaseStyle="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;" mermaidBaseValue="Node 4: ProSafe Cam&#xa;(172.28.10.23 - Cổng 8443/554)" id="y4GLPfj40D3b9R_YEBVu-10">
+          <mxCell parent="y4GLPfj40D3b9R_YEBVu-6" style="html=1;whiteSpace=wrap;strokeWidth=2;fillColor=#ffffff;strokeColor=#28253D;fontColor=#28253D;fontFamily=Recursive;fontSize=14;shadow=1;shadowColor=#000000;shadowOffsetX=4;shadowOffsetY=4;shadowBlur=0;shadowOpacity=6;labelWidth=120;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" vertex="1">
+            <mxGeometry height="108" width="152" x="77.5" y="48" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="1. Quét &amp; Phát hiện vi phạm" mermaidId="e:Engine-&gt;VLAN10#0" mermaidBaseStyle="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;startArrow=none;endArrow=block;endSize=8;jumpStyle=arc;jumpSize=12;strokeColor=#000000;html=1;fontSize=16;labelBackgroundColor=#cccccc;fontFamily=Recursive;fontColor=#28253D;exitX=1;exitY=0.37;entryX=0;entryY=0.85;strokeWidth=2;targetPerimeterSpacing=4;" mermaidBaseValue="1. Quét &amp; Phát hiện vi phạm" id="y4GLPfj40D3b9R_YEBVu-11">
+          <mxCell edge="1" parent="y4GLPfj40D3b9R_YEBVu-1" source="y4GLPfj40D3b9R_YEBVu-5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;startArrow=none;endArrow=block;endSize=8;jumpStyle=arc;jumpSize=12;strokeColor=#000000;html=1;fontSize=14;labelBackgroundColor=#cccccc;fontFamily=Recursive;fontColor=#28253D;exitX=1;exitY=0.37;strokeWidth=2;targetPerimeterSpacing=4;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="y4GLPfj40D3b9R_YEBVu-6">
+            <mxGeometry relative="1" x="-0.0844" as="geometry">
+              <Array as="points">
+                <mxPoint x="305" y="599" />
+                <mxPoint x="305" y="539" />
+                <mxPoint x="1232" y="539" />
+                <mxPoint x="1232" y="367" />
+              </Array>
+              <mxPoint x="1260" y="400" as="targetPoint" />
+            </mxGeometry>
+          </mxCell>
+        </UserObject>
+        <UserObject label="2. Đề xuất cách ly Node 1 &amp; Node 3" mermaidId="e:Engine-&gt;QuarantineNode#0" mermaidBaseStyle="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;startArrow=none;endArrow=block;endSize=8;jumpStyle=arc;jumpSize=12;strokeColor=#000000;html=1;fontSize=16;labelBackgroundColor=#cccccc;fontFamily=Recursive;fontColor=#28253D;exitX=1;exitY=0.62;entryX=0;entryY=0.49;strokeWidth=2;targetPerimeterSpacing=4;" mermaidBaseValue="2. Đề xuất cách ly Node 1 &amp; Node 3" id="y4GLPfj40D3b9R_YEBVu-12">
+          <mxCell edge="1" parent="y4GLPfj40D3b9R_YEBVu-1" source="y4GLPfj40D3b9R_YEBVu-5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;startArrow=none;endArrow=block;endSize=8;jumpStyle=arc;jumpSize=12;strokeColor=#000000;html=1;fontSize=14;labelBackgroundColor=#cccccc;fontFamily=Recursive;fontColor=#28253D;exitX=1;exitY=0.62;entryX=0;entryY=0.49;strokeWidth=2;targetPerimeterSpacing=4;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" target="y4GLPfj40D3b9R_YEBVu-3">
+            <mxGeometry relative="1" x="0.1342" y="1" as="geometry">
+              <mxPoint as="offset" />
+              <Array as="points">
+                <mxPoint x="285" y="621" />
+                <mxPoint x="305" y="621" />
+                <mxPoint x="305" y="681" />
+                <mxPoint x="603" y="681" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </UserObject>
+        <UserObject label="3. Kiểm toán viên duyệt chuyển cổng" mermaidId="e:QuarantineNode-&gt;Cam1#0" mermaidBaseStyle="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;dashed=1;dashPattern=2 2;fixDash=1;startArrow=none;endArrow=block;endSize=8;jumpStyle=arc;jumpSize=12;strokeColor=#000000;html=1;fontSize=16;labelBackgroundColor=#cccccc;fontFamily=Recursive;fontColor=#28253D;exitX=1;exitY=0.49;entryX=0;entryY=0.5;strokeWidth=2;targetPerimeterSpacing=4;" mermaidBaseValue="3. Kiểm toán viên duyệt chuyển cổng" id="y4GLPfj40D3b9R_YEBVu-13">
+          <mxCell edge="1" parent="y4GLPfj40D3b9R_YEBVu-1" source="y4GLPfj40D3b9R_YEBVu-3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;dashed=1;dashPattern=2 2;fixDash=1;startArrow=none;endArrow=block;endSize=8;jumpStyle=arc;jumpSize=12;strokeColor=#000000;html=1;fontSize=14;labelBackgroundColor=#cccccc;fontFamily=Recursive;fontColor=#28253D;exitX=1;exitY=0.49;entryX=0;entryY=0.5;strokeWidth=2;targetPerimeterSpacing=4;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DRecursive;" target="y4GLPfj40D3b9R_YEBVu-7">
+            <mxGeometry relative="1" x="-0.0911" as="geometry">
+              <mxPoint x="1" as="offset" />
+              <Array as="points">
+                <mxPoint x="916" y="681" />
+                <mxPoint x="1232" y="681" />
+                <mxPoint x="1232" y="616" />
+                <mxPoint x="1252" y="616" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </UserObject>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

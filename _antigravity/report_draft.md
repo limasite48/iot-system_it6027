@@ -1,6 +1,6 @@
 # HỌC PHẦN: CHÍNH SÁCH VÀ QUẢN TRỊ AN TOÀN THÔNG TIN (IT6027)
 ## ĐỀ TÀI: HỆ THỐNG PHÁT HIỆN THIẾT BỊ IOT KHÔNG AN TOÀN TRONG MẠNG
-**Mã nguồn:** `iot-system` | **Phiên bản:** `v0.2.2`
+**Mã nguồn:** `iot-system` | **Phiên bản:** `v0.2.4`
 
 ---
 
@@ -103,9 +103,9 @@ flowchart TD
   - `PyYAML` (>=6.0.0): Phân tích cú pháp tệp chính sách YAML.
   - `sqlite3` (Chuẩn Python, WAL Mode): Lưu trữ bền vững 6 bảng dữ liệu.
   - `pytest` (>=8.0.0): Chạy bộ kiểm thử tự động 123 tests.
-- **Kịch bản Khởi động Nhanh (Turnkey Scripts):**
+- **Hướng dẫn sử dụng cơ bản:**
   - Khởi động: `./docker-start.sh` (Linux/Mac) hoặc `docker-start.bat` (Windows).
-  - Đóng gói nộp bài offline: `./docker-export.sh` (sinh tệp `iot-security-images.tar.gz`).
+  - Đóng gói thành Docker Image: `./docker-export.sh` (sinh tệp `iot-security-images.tar.gz`).
 
 ---
 
@@ -246,7 +246,7 @@ sequenceDiagram
         Scanner->>Audit: Thử mật khẩu xuất xưởng (default_passwords.txt)
         Audit-->>Scanner: Phát hiện admin:admin trên cổng 8080
         Scanner->>Audit: Đối soát kho CVE cục bộ theo CPE & SemVer
-        Audit-->>Scanner: Khớp CVE-2019-10999 (CVSS 9.8 Critical, SSVC=ACT)
+        Audit-->>Scanner: Khớp CVE-2020-25078 (CVSS 9.8 Critical, SSVC=ACT)
     end
 
     %% STAGE 6
@@ -419,7 +419,7 @@ erDiagram
 flowchart LR
     subgraph VLAN10["VLAN 10 (Mạng Vận hành - 172.28.10.0/24)"]
         Cam1["Node 1: D-Link DCS-932L\n(172.28.10.20 - Cổng 8080/554)"]
-        TV2["Node 2: Sony BRAVIA TV\n(172.28.10.21 - Cổng 8001)"]
+        TV2["Node 2: Sony BRAVIA TV\n(172.28.10.21 - Cổng 8443)"]
         AC3["Node 3: Daikin Smart AC\n(172.28.10.22 - Cổng 80)"]
         Cam4["Node 4: ProSafe Cam\n(172.28.10.23 - Cổng 8443/554)"]
     end
@@ -441,9 +441,9 @@ flowchart LR
 
 | Địa chỉ IP | Tên Thiết bị & Model | Cổng Mở | Mật khẩu Mặc định | Lỗ hổng CVE & CVSS | Vi phạm Chính sách | Hành động Đề xuất |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`172.28.10.20`** | D-Link DCS-932L Camera | 8080, 554 | **`admin:admin`** | CVE-2019-10999 (**CVSS 9.8**) | NIST IR 8259A & ISO 27002 | **CÁCH LY NGAY sang VLAN 99** (CRITICAL) |
-| **`172.28.10.21`** | Sony BRAVIA 4K Smart TV | 8001 | Không (Digest Auth) | Không | Đạt chuẩn an toàn | **DUY TRÌ VLAN 10** (LOW) |
-| **`172.28.10.22`** | Daikin Smart AC | 80 | Không mật khẩu (Open API) | CVE-2022-26134 (**CVSS 7.5**) | ETSI EN 303 645 (Open Actuator) | **ĐỀ XUẤT CÁCH LY VLAN 99** (HIGH) |
+| **`172.28.10.20`** | D-Link DCS-932L Camera | 8080, 554 | **`admin:admin`** | CVE-2020-25078 (**CVSS 9.8**) | NIST IR 8259A & ISO 27002 | **CÁCH LY NGAY sang VLAN 99** (CRITICAL) |
+| **`172.28.10.21`** | Sony BRAVIA 4K Smart TV | 8443 | Không (Digest Auth) | Không | Đạt chuẩn an toàn | **DUY TRÌ VLAN 10** (LOW) |
+| **`172.28.10.22`** | Daikin Smart AC | 80 | Không mật khẩu (Open API) | CVE-2021-38144 (**CVSS 7.5**) | ETSI EN 303 645 (Open Actuator) | **ĐỀ XUẤT CÁCH LY VLAN 99** (HIGH) |
 | **`172.28.10.23`** | ProSafe Cam (Hardened) | 8443, 554 | Không (Mật khẩu mạnh) | Không | Đạt chuẩn an toàn tăng cường | **DUY TRÌ VLAN 10** (LOW) |
 
 - **Thẩm duyệt Kiểm toán viên (Triage):** Trên Web Dashboard, quản trị viên kiểm tra vi phạm Node 1 (`172.28.10.20`), bấm **Approve Quarantine** kèm ghi chú xử lý. Hệ thống chuyển trạng thái thành *APPROVED* và lưu vết vào SQLite.
@@ -452,7 +452,7 @@ flowchart LR
 
 ### 6.2. Kịch bản 2: Kiểm thử Tự động Toàn diện (Testing Scenario)
 
-Hệ thống sở hữu bộ kiểm thử tự động gồm **123 bài test (100% Pass Rate)** chạy qua `pytest`:
+Hệ thống sở hữu bộ kiểm thử tự động gồm **127 bài test (100% Pass Rate)** chạy qua `pytest`:
 
 | Phân hệ Kiểm thử | Tệp Test Đại diện | Số Tests | Nội dung Xác thực |
 | :--- | :--- | :---: | :--- |
@@ -464,8 +464,9 @@ Hệ thống sở hữu bộ kiểm thử tự động gồm **123 bài test (10
 | **Thực thi Chính sách**| `test_policy_engine.py`, `test_vlan_scoper.py` | 11 | Kiểm tra schema tệp luật YAML, gán VLAN 99 cách ly. |
 | **Lưu trữ CSDL SQLite** | `test_database_persistence.py` | 8 | Kiểm tra khởi tạo 6 bảng, ghi đọc WAL mode, phục hồi dữ liệu. |
 | **Đo Băng thông & API** | `test_traffic_and_audit_fixes.py` | 11 | Đo per-device Rx/Tx, kiểm tra REST API endpoints. |
+| **Vá lỗi & Ổn định v0.2.4**| `test_audit_v024_fixes.py` | 4 | Xác thực VLAN 99 CISA SSVC, chống duplicate CSDL, thread-safe API, UPnP FW. |
 | **Tích hợp Toàn trình** | `test_all_in_one.py`, `test_integration.py` | 38 | Vận hành toàn bộ quy trình quét 7 giai đoạn end-to-end. |
-| **TỔNG CỘNG** | **17 tệp test** | **123** | **123 passed, 100% Pass Rate (Thời gian chạy: 46.1s)** |
+| **TỔNG CỘNG** | **18 tệp test** | **127** | **127 passed, 100% Pass Rate** |
 
 ---
 

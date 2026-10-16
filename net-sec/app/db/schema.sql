@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS cve_findings (
     ssvc_action TEXT,
     description TEXT,
     remediation TEXT,
-    FOREIGN KEY (ip) REFERENCES devices(ip) ON DELETE CASCADE
+    FOREIGN KEY (ip) REFERENCES devices(ip) ON DELETE CASCADE,
+    UNIQUE(scan_id, ip, cve_id)
 );
 
 CREATE TABLE IF NOT EXISTS triage_records (

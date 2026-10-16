@@ -59,10 +59,12 @@ def match_cves_for_device(device_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         # Pre-check firmware version against CVE bounds if device firmware is known
         dev_fw = str(device_info.get("firmware") or "")
         if not dev_fw and device_info.get("upnp_meta"):
-            mod_num = device_info["upnp_meta"].get("model_number") or ""
-            ver_m = re.search(r"(\d+\.\d+(?:\.\d+)?)", mod_num)
-            if ver_m:
-                dev_fw = ver_m.group(1)
+            dev_fw = str(device_info["upnp_meta"].get("firmware_version") or "")
+            if not dev_fw:
+                mod_num = device_info["upnp_meta"].get("model_number") or ""
+                ver_m = re.search(r"(\d+\.\d+(?:\.\d+)?)", mod_num)
+                if ver_m:
+                    dev_fw = ver_m.group(1)
 
         has_version_constraints = bool(
             entry.get("version_start_including") or

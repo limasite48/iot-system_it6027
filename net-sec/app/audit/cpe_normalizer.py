@@ -228,10 +228,14 @@ class CpeNormalizer:
         if firmware:
             fw_version = firmware
         elif upnp_meta:
-            mod_num = upnp_meta.get("model_number") or ""
-            ver_match = re.search(r"(\d+\.\d+(?:\.\d+)?)", mod_num)
-            if ver_match:
-                fw_version = ver_match.group(1)
+            fw_version = upnp_meta.get("firmware_version") or ""
+            if not fw_version:
+                mod_num = upnp_meta.get("model_number") or ""
+                ver_match = re.search(r"(\d+\.\d+(?:\.\d+)?)", mod_num)
+                if ver_match:
+                    fw_version = ver_match.group(1)
+            if not fw_version:
+                fw_version = "*"
 
         # Synthesize OS / Firmware CPE if vendor and model or UPnP present
         effective_mfr = upnp_meta.get("manufacturer") or vendor

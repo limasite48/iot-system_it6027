@@ -15,8 +15,13 @@ def evaluate_cve_context(device: Dict[str, Any], cve: Dict[str, Any]) -> Dict[st
     open_ports = device.get("open_ports", [])
     required_ports = cve.get("required_open_ports", [])
     vlan_info = device.get("vlan", {})
-    vlan_id = str(vlan_info.get("id", "")) if isinstance(vlan_info, dict) else str(vlan_info)
-    is_quarantined = "99" in vlan_id
+    if isinstance(vlan_info, dict):
+        vlan_id = str(vlan_info.get("vlan_id") or vlan_info.get("id") or "")
+        vlan_name = str(vlan_info.get("name", ""))
+    else:
+        vlan_id = str(vlan_info)
+        vlan_name = str(vlan_info)
+    is_quarantined = "99" in vlan_id or "99" in vlan_name or "quarantine" in vlan_name.lower()
     is_cisa_kev = cve.get("cisa_kev", False)
     has_default_pw = device.get("default_credentials_found", False)
     cvss_score = float(cve.get("cvss_score", 0.0))

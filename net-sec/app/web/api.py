@@ -70,7 +70,7 @@ app = FastAPI(
                 "- **Subsystem 1**: Network & IoT Discovery (`app/discovery/`)\n"
                 "- **Subsystem 2**: Vulnerability Assessment & Compliance (`app/audit/`)\n"
                 "- **Subsystem 3**: Platform, Orchestration & Governance (`app/scoping/`, `app/web/`)",
-    version="2.1.0",
+    version="2.4.0",
     openapi_tags=TAGS_METADATA,
     lifespan=lifespan
 )
@@ -132,7 +132,7 @@ async def get_traffic():
 
 @app.get("/api/status", tags=["Operational Inventory & Scoping"])
 async def get_status():
-    edge_devices = [d for d in SCANNER.inventory.values() if is_edge_ip(d.get("ip", ""))]
+    edge_devices = SCANNER.get_edge_devices()
     return {
         "status": "ONLINE",
         "is_scanning": SCANNER.is_scanning,
@@ -282,7 +282,7 @@ async def evaluate_cve_for_device(device_payload: Dict[str, Any]):
 # Inventory & Scoping Endpoints
 @app.get("/api/devices", tags=["Operational Inventory & Scoping"])
 async def get_devices():
-    return [d for d in SCANNER.inventory.values() if is_edge_ip(d.get("ip", ""))]
+    return SCANNER.get_edge_devices()
 
 @app.get("/api/stats", tags=["Operational Inventory & Scoping"])
 async def get_stats():
@@ -300,7 +300,7 @@ async def get_scoping():
 async def generate_markdown_report():
     """Generates an academic-grade governance audit report including CPEs, policies, and triage."""
     stats = SCANNER.get_summary_statistics()
-    devices = [d for d in SCANNER.inventory.values() if is_edge_ip(d.get("ip", ""))]
+    devices = SCANNER.get_edge_devices()
     triage_stats = stats.get("triage", {})
 
     lines = [

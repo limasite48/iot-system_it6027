@@ -170,9 +170,42 @@ def test_http_auth(ip: str, port: int, creds: List[Tuple[str, str]], timeout: fl
                                 pass
                         return {"auth_required": True, "matched_credential": None, "is_open_access": False}
 
-                    # No login form: Check if this service exposes sensitive IoT functionality without auth
+                    # No login form: Check if this service exposes sensitive IoT functionality
                     ct = resp.headers.get("Content-Type", "")
                     if is_sensitive_iot_service(port, resp.text, ct):
+                        # Probe if sensitive streaming sub-endpoints require Digest/Basic authentication (e.g. Android IP Webcam)
+                        sub_challenge = None
+                        if port in [8080, 8081, 80, 8443, 4747] or any(k in resp.text.lower() for k in ["ip webcam", "webcam", "camera", "stream"]):
+                            for sub in ["/video", "/status.json", "/shot.jpg"]:
+                                try:
+                                    sub_resp = client.get(f"{scheme}://{ip}:{port}{sub}", headers=headers, follow_redirects=False)
+                                    if sub_resp.status_code in [401, 403]:
+                                        sub_challenge = (f"{scheme}://{ip}:{port}{sub}", sub_resp)
+                                        break
+                                except Exception:
+                                    pass
+
+                        if sub_challenge:
+                            sub_url, ch_resp = sub_challenge
+                            ch_hdr = ch_resp.headers.get("WWW-Authenticate", "")
+                            is_dig = "digest" in ch_hdr.lower()
+                            for user, pwd in creds:
+                                auth_h = httpx.DigestAuth(user, pwd) if is_dig else httpx.BasicAuth(user, pwd)
+                                svc_lbl = f"HTTP Digest ({port})" if is_dig else f"HTTP Basic ({port})"
+                                try:
+                                    a_resp = client.get(sub_url, auth=auth_h, headers=headers)
+                                    if a_resp.status_code in [200, 301, 302, 307]:
+                                        return {
+                                            "auth_required": True,
+                                            "matched_credential": f"{user}:{pwd}",
+                                            "service": svc_lbl,
+                                            "is_open_access": False,
+                                            "description": f"Publicly known default credential accepted on port {port}: {user}:{pwd}"
+                                        }
+                                except Exception:
+                                    continue
+                            return {"auth_required": True, "matched_credential": None, "is_open_access": False}
+
                         return {
                             "auth_required": False,
                             "matched_credential": "<NONE> (Open Access / No Password Required)",

@@ -7,6 +7,7 @@ Fully dynamic, eliminated hardcoded subnet assumptions and ghost ARP leases.
 """
 
 import os
+import json
 import asyncio
 import socket
 import re
@@ -63,7 +64,24 @@ class SecurityScannerEngine:
             try:
                 saved_devices = self.db_manager.load_all_devices()
                 if saved_devices:
-                    self.inventory.update(saved_devices)
+                    is_docker = os.path.exists("/.dockerenv") or os.environ.get("IS_DOCKER") == "1"
+                    filtered = {}
+                    for ip, dev in saved_devices.items():
+                        # Omit network infrastructure gateways (.1)
+                        if ip.endswith(".1") and ip != "127.0.0.1":
+                            continue
+                        # Inside Docker, omit stale host loopback nodes (127.0.0.X)
+                        if is_docker and ip.startswith("127.0.0.") and ip != "127.0.0.1":
+                            continue
+                        # Suppress exploratory ghost loopback entries beyond standard testbed fleet (127.0.0.6+)
+                        if ip.startswith("127.0.0.") and ip != "127.0.0.1":
+                            try:
+                                if int(ip.split(".")[-1]) > 5:
+                                    continue
+                            except Exception:
+                                pass
+                        filtered[ip] = dev
+                    self.inventory.update(filtered)
                 saved_scans = self.db_manager.load_scan_history(limit=50)
                 if saved_scans:
                     self.scan_history = list(reversed(saved_scans))
@@ -554,23 +572,27 @@ class SecurityScannerEngine:
                 if is_edge_ip(ip) and ip not in host_ips and ip != "127.0.0.1":
                     candidate_hosts.add(ip)
 
-            # 2. Local testbed loopback mock IPs (dynamically discovered from fleet state, avoiding fixed hardcoded counts)
-            mock_state_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mock-object", "fleet_state.json"))
-            if os.path.exists(mock_state_file):
-                try:
-                    import json
-                    with open(mock_state_file, "r", encoding="utf-8") as f:
-                        f_state = json.load(f)
-                        for proc in f_state.get("processes", []):
-                            p_ip = proc.get("ip")
-                            if p_ip and p_ip.startswith("127.0.0."):
-                                candidate_hosts.add(p_ip)
-                except Exception:
-                    pass
-            # Dynamic exploratory bounds
-            max_loopback_probes = max(32, len(candidate_hosts) + 16)
-            for i in range(2, max_loopback_probes + 1):
-                candidate_hosts.add(f"127.0.0.{i}")
+            # 2. Local testbed loopback mock IPs (only when running on host with active mock fleet)
+            is_docker = os.path.exists("/.dockerenv") or os.environ.get("IS_DOCKER") == "1"
+            if not is_docker:
+                mock_state_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mock-object", "fleet_state.json"))
+                found_fleet = False
+                if os.path.exists(mock_state_file):
+                    try:
+                        import json
+                        with open(mock_state_file, "r", encoding="utf-8") as f:
+                            f_state = json.load(f)
+                            for proc in f_state.get("processes", []):
+                                p_ip = proc.get("ip")
+                                if p_ip and p_ip.startswith("127.0.0."):
+                                    candidate_hosts.add(p_ip)
+                                    found_fleet = True
+                    except Exception:
+                        pass
+                if not found_fleet and not os.path.exists("/.dockerenv"):
+                    # Fallback to standard 4-node local testbed fleet bounds (127.0.0.2 to 127.0.0.5)
+                    for i in range(2, 6):
+                        candidate_hosts.add(f"127.0.0.{i}")
 
             # 3. Hosts from detected active edge subnets
             for cidr in candidate_subnets:
@@ -579,7 +601,7 @@ class SecurityScannerEngine:
                     if net.num_addresses <= 256:
                         for h in net.hosts():
                             ip_str = str(h)
-                            if ip_str not in host_ips and is_edge_ip(ip_str):
+                            if ip_str not in host_ips and is_edge_ip(ip_str) and not (ip_str.endswith(".1") and ip_str != "127.0.0.1"):
                                 candidate_hosts.add(ip_str)
                 except Exception:
                     pass
@@ -591,13 +613,13 @@ class SecurityScannerEngine:
 
             target_ips = {
                 ip for ip in target_ips
-                if is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and ip != "127.0.0.1"
+                if is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and not (ip.endswith(".1") and ip != "127.0.0.1")
             }
         else:
             try:
                 network = ipaddress.ip_network(target_cidr, strict=False)
                 if network.num_addresses <= 256:
-                    candidate_hosts = [str(h) for h in network.hosts() if str(h) not in host_ips and is_edge_ip(str(h))]
+                    candidate_hosts = [str(h) for h in network.hosts() if str(h) not in host_ips and is_edge_ip(str(h)) and not (str(h).endswith(".1") and str(h) != "127.0.0.1")]
                     sweep_tasks = [probe_ip_fast(h) for h in candidate_hosts]
                     sweep_results = await asyncio.gather(*sweep_tasks)
                     active_from_sweep = {res for res in sweep_results if res}
@@ -605,13 +627,13 @@ class SecurityScannerEngine:
 
                 target_ips = {
                     ip for ip in target_ips
-                    if ipaddress.ip_address(ip) in network and is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and ip != "127.0.0.1"
+                    if ipaddress.ip_address(ip) in network and is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and not (ip.endswith(".1") and ip != "127.0.0.1")
                 }
             except Exception as e:
                 print(f"[!] Warning sweeping CIDR {target_cidr}: {e}")
                 target_ips = {
                     ip for ip in target_ips
-                    if is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and ip != "127.0.0.1"
+                    if is_edge_ip(ip) and ip not in host_ips and not ip.endswith(".255") and not (ip.endswith(".1") and ip != "127.0.0.1")
                 }
 
         print(f"[*] [{scan_id}] Identified {len(target_ips)} target IP(s) for deep audit: {sorted(list(target_ips))}")
@@ -647,43 +669,57 @@ class SecurityScannerEngine:
             full_dev = self.evaluate_device_policies(raw_dev, audit_data)
             scanned_devices.append(full_dev)
 
-        # Stage 6 Cataloging & Presence Confirmation
+        # Stage 6 Cataloging & Presence Confirmation (Network checks performed outside lock)
         hotspot_clients = get_hotspot_active_clients()
         hotspot_macs = {c["mac"] for c in hotspot_clients}
 
+        scanned_ips = set()
+        for dev in scanned_devices:
+            dev_ip = dev["ip"]
+            if not is_edge_ip(dev_ip):
+                continue
+            scanned_ips.add(dev_ip)
+            is_alive = self.check_host_alive(dev_ip, open_ports=dev.get("open_ports", []), mac=dev.get("mac"))
+            is_hotspot_peer = bool(dev.get("mac") and dev["mac"] in hotspot_macs)
+            dev["is_online"] = (is_alive or is_hotspot_peer)
+
+        # Snapshot inventory to verify un-scanned hosts without holding lock during I/O
         with self._lock:
-            scanned_ips = set()
+            existing_items = list(self.inventory.items())
+
+        unscanned_updates = {}
+        for inv_ip, inv_dev in existing_items:
+            if not is_edge_ip(inv_ip):
+                continue
+            try:
+                if is_all_mode or (network and ipaddress.ip_address(inv_ip) in network):
+                    if inv_ip not in scanned_ips:
+                        alive = self.check_host_alive(
+                            inv_ip,
+                            open_ports=inv_dev.get("open_ports", []),
+                            mac=inv_dev.get("mac")
+                        )
+                        is_peer = bool(inv_dev.get("mac") and inv_dev["mac"] in hotspot_macs)
+                        unscanned_updates[inv_ip] = (alive or is_peer)
+            except Exception:
+                pass
+
+        # Brief lock acquisition to commit final catalog and state
+        with self._lock:
             for dev in scanned_devices:
                 dev_ip = dev["ip"]
                 if not is_edge_ip(dev_ip):
                     continue
-
-                scanned_ips.add(dev_ip)
-                is_alive = self.check_host_alive(dev_ip, open_ports=dev.get("open_ports", []), mac=dev.get("mac"))
+                is_alive = dev["is_online"]
                 is_hotspot_peer = bool(dev.get("mac") and dev["mac"] in hotspot_macs)
-                dev["is_online"] = (is_alive or is_hotspot_peer)
-
                 if dev["open_ports"] or dev["mdns"] or dev["upnp"] or is_hotspot_peer or is_alive:
                     self.inventory[dev_ip] = dev
                 elif dev_ip in self.inventory:
                     self.inventory[dev_ip]["is_online"] = False
 
-            # Verify existing devices in inventory that fall within target_cidr
-            for inv_ip, inv_dev in self.inventory.items():
-                if not is_edge_ip(inv_ip):
-                    continue
-                try:
-                    if is_all_mode or (network and ipaddress.ip_address(inv_ip) in network):
-                        if inv_ip not in scanned_ips:
-                            alive = self.check_host_alive(
-                                inv_ip,
-                                open_ports=inv_dev.get("open_ports", []),
-                                mac=inv_dev.get("mac")
-                            )
-                            is_peer = bool(inv_dev.get("mac") and inv_dev["mac"] in hotspot_macs)
-                            inv_dev["is_online"] = (alive or is_peer)
-                except Exception:
-                    pass
+            for inv_ip, online_status in unscanned_updates.items():
+                if inv_ip in self.inventory:
+                    self.inventory[inv_ip]["is_online"] = online_status
 
             self.is_scanning = False
             self.current_stage = "STAGE_7_COMPLETED"
@@ -729,15 +765,32 @@ class SecurityScannerEngine:
         if ip in ["127.0.0.1", "localhost", "::1"]:
             return True
 
-        # Layer 1: Authoritative Windows Mobile Hotspot connected peer verification
+        # Layer 1: Real-time Hotspot & Physical IoT Telemetry Bridge
         is_hotspot_ip = ip.startswith("192.168.137.") or ip.startswith("192.168.173.")
-        hotspot_clients = get_hotspot_active_clients()
-        is_in_hotspot = any(c["mac"] == mac for c in hotspot_clients) if mac else False
-        if is_in_hotspot:
-            return True
+        data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+        telemetry_file = os.path.join(data_dir, "hotspot_telemetry.json")
+        if not os.path.exists(telemetry_file):
+            telemetry_file = "/app/data/hotspot_telemetry.json"
+        if os.path.exists(telemetry_file):
+            try:
+                with open(telemetry_file, "r", encoding="utf-8") as tf:
+                    t_data = json.load(tf)
+                    for hd in t_data.get("devices", []):
+                        if hd.get("ip") == ip or (mac and hd.get("mac") == mac):
+                            # Strict IoT Standard: only alive if IoT service port active
+                            return bool(hd.get("is_online"))
+            except Exception:
+                pass
 
-        if is_hotspot_ip and mac and not is_in_hotspot:
-            return False
+        hotspot_clients = get_hotspot_active_clients()
+        is_in_hotspot = any(
+            (mac and c.get("mac") == mac) or
+            (c.get("ip") and c.get("ip") == ip) or
+            (ip in c.get("hostname", ""))
+            for c in hotspot_clients
+        )
+        if is_in_hotspot and not open_ports:
+            return True
 
         # Layer 2: TCP connect on known open ports
         if open_ports:
@@ -801,6 +854,24 @@ class SecurityScannerEngine:
         if hotspot_net not in managed_networks:
             managed_networks.append(hotspot_net)
 
+        # Check real-time Hotspot & Physical IoT Telemetry Bridge
+        data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+        telemetry_file = os.path.join(data_dir, "hotspot_telemetry.json")
+        if not os.path.exists(telemetry_file):
+            telemetry_file = "/app/data/hotspot_telemetry.json"
+
+        hotspot_telemetry: Dict[str, Dict[str, Any]] = {}
+        if os.path.exists(telemetry_file):
+            try:
+                with open(telemetry_file, "r", encoding="utf-8") as tf:
+                    t_data = json.load(tf)
+                    for h_dev in t_data.get("devices", []):
+                        h_ip = h_dev.get("ip")
+                        if h_ip:
+                            hotspot_telemetry[h_ip] = h_dev
+            except Exception:
+                pass
+
         hotspot_clients = get_hotspot_active_clients()
         hotspot_macs = {c["mac"] for c in hotspot_clients}
         host_ips = get_host_ips()
@@ -809,17 +880,129 @@ class SecurityScannerEngine:
             items_to_check = list(self.inventory.items())
 
         for ip, dev in items_to_check:
-            if not is_edge_ip(ip):
+            if not is_edge_ip(ip) or (ip.endswith(".1") and ip != "127.0.0.1"):
                 with self._lock:
                     self.inventory.pop(ip, None)
                 continue
 
             mac = dev.get("mac", "")
             is_hotspot_ip = ip.startswith("192.168.137.") or ip.startswith("192.168.173.")
-            is_hotspot_peer = bool(mac and mac in hotspot_macs)
+            was_online = bool(dev.get("is_online"))
+
+            # Prioritize authoritative real-time Telemetry Bridge if active
+            if is_hotspot_ip and hotspot_telemetry:
+                if ip in hotspot_telemetry:
+                    h_info = hotspot_telemetry[ip]
+                    h_online = bool(h_info.get("is_online"))
+                    with self._lock:
+                        dev["is_online"] = h_online
+                        dev["device_type"] = h_info.get("device_type", dev.get("device_type"))
+                        dev["model"] = h_info.get("model", dev.get("model"))
+                        dev["vendor"] = h_info.get("vendor", dev.get("vendor"))
+                        if h_info.get("mac") and h_info.get("mac") != "Unknown":
+                            dev["mac"] = h_info.get("mac")
+                        dev["open_ports"] = h_info.get("open_ports", [])
+                        dev["banners"] = h_info.get("banners", {})
+                        dev["is_open_access"] = h_info.get("is_open_access", False)
+                        dev["default_credentials_found"] = h_info.get("default_credentials_found", False)
+                        dev["credential_findings"] = h_info.get("credential_findings", [])
+                        dev["risk_level"] = h_info.get("risk_level", dev.get("risk_level"))
+                        if h_info.get("scoping_policy"):
+                            dev["scoping_policy"] = h_info.get("scoping_policy")
+                        elif h_info.get("default_credentials_found") or h_info.get("is_open_access"):
+                            dev["scoping_policy"] = {
+                                "risk_level": "CRITICAL",
+                                "max_cvss": 9.8,
+                                "quarantine_required": True,
+                                "recommended_vlan": "VLAN 99 (Quarantine)",
+                                "policy_violation": True,
+                                "policy_message": "VIOLATION: Publicly known default credentials accepted. Immediate network isolation required." if h_info.get("default_credentials_found") else "VIOLATION: Unauthenticated open access detected.",
+                                "remediation": "Move switch port / assign 802.1Q tag for VLAN 99. Enforce strong unique credentials."
+                            }
+
+                        # Ingest findings into Auditor Triage Manager
+                        if h_info.get("credential_findings"):
+                            for finding in h_info.get("credential_findings", []):
+                                f_type = "OPEN_ACCESS" if finding.get("is_open_access") else "DEFAULT_CREDENTIAL"
+                                GLOBAL_TRIAGE_MANAGER.record_finding(
+                                    target_ip=ip,
+                                    finding_type=f_type,
+                                    title=f"Port {finding['port']}: {finding['credential']}",
+                                    severity="CRITICAL",
+                                    details=finding.get("description", "Default credential detected."),
+                                    remediation="Enforce unique per-device passwords" if not finding.get("is_open_access") else "Enable mandatory authentication on streaming interface",
+                                    device_type=dev.get("device_type", "IP Camera"),
+                                    port=finding.get("port")
+                                )
+
+                        if h_info.get("default_credentials_found") and not dev.get("_alerted_default_creds"):
+                            dev["_alerted_default_creds"] = True
+                            c_name = h_info.get("credential_findings", [{}])[0].get("credential", "admin:admin")
+                            self.record_alert({
+                                "timestamp": datetime.now().isoformat(),
+                                "severity": "CRITICAL",
+                                "device_ip": ip,
+                                "device_type": dev.get("device_type", "IP Camera"),
+                                "title": f"Default Credential Alert ({c_name})",
+                                "details": f"Physical IoT device {ip} accepted publicly known default login: {c_name}"
+                            })
+                        elif not h_info.get("default_credentials_found"):
+                            dev["_alerted_default_creds"] = False
+
+                        if h_info.get("traffic"):
+                            dev["traffic"] = h_info.get("traffic")
+                            try:
+                                with GLOBAL_TRAFFIC_METER._lock:
+                                    GLOBAL_TRAFFIC_METER._device_stats[ip] = dict(h_info.get("traffic"))
+                                    GLOBAL_TRAFFIC_METER.metrics["device_traffic"][ip] = dict(h_info.get("traffic"))
+                            except Exception:
+                                pass
+                        dev["last_seen"] = datetime.now().isoformat()
+                        if h_online:
+                            dev["missed_pings"] = 0
+                            if not was_online:
+                                self.record_alert({
+                                    "timestamp": datetime.now().isoformat(),
+                                    "severity": "INFO",
+                                    "device_ip": ip,
+                                    "device_type": dev.get("device_type", "Unknown"),
+                                    "title": f"IoT Device Active: {ip}",
+                                    "details": f"Physical IoT device {ip} ({dev.get('model')}) is online and serving traffic."
+                                })
+                        else:
+                            dev["missed_pings"] = dev.get("missed_pings", 0) + 1
+                            if was_online:
+                                self.record_alert({
+                                    "timestamp": datetime.now().isoformat(),
+                                    "severity": "WARNING",
+                                    "device_ip": ip,
+                                    "device_type": dev.get("device_type", "Unknown"),
+                                    "title": f"IoT Device Offline / Stopped: {ip}",
+                                    "details": f"Physical IoT device {ip} stopped its IoT service or disconnected."
+                                })
+                    continue
+                else:
+                    # Device disconnected completely from hotspot Wi-Fi
+                    with self._lock:
+                        dev["is_online"] = False
+                        dev["missed_pings"] = dev.get("missed_pings", 0) + 1
+                        if was_online:
+                            self.record_alert({
+                                "timestamp": datetime.now().isoformat(),
+                                "severity": "WARNING",
+                                "device_ip": ip,
+                                "device_type": dev.get("device_type", "Unknown"),
+                                "title": f"Device Left Network (Offline): {ip}",
+                                "details": f"Physical IoT device {ip} disconnected from the Wi-Fi hotspot."
+                            })
+                    continue
+
+            is_hotspot_peer = bool(
+                (mac and mac in hotspot_macs) or
+                any((c.get("ip") and c.get("ip") == ip) or (ip in c.get("hostname", "")) for c in hotspot_clients)
+            )
 
             is_alive = self.check_host_alive(ip, open_ports=dev.get("open_ports", []), mac=mac)
-            was_online = bool(dev.get("is_online"))
 
             if is_alive or is_hotspot_peer:
                 with self._lock:
@@ -850,6 +1033,54 @@ class SecurityScannerEngine:
                             "details": f"IoT Device {ip} ({dev.get('device_type')}) stopped responding to network heartbeat."
                         })
 
+        # Register any newly discovered physical devices from telemetry
+        for h_ip, h_info in hotspot_telemetry.items():
+            with self._lock:
+                if h_ip not in self.inventory and h_info.get("is_online"):
+                    self.inventory[h_ip] = {
+                        "ip": h_ip,
+                        "mac": h_info.get("mac", "Unknown"),
+                        "vendor": h_info.get("vendor", "Unknown"),
+                        "model": h_info.get("model", "Unspecified"),
+                        "device_type": h_info.get("device_type", "Generic IoT Device"),
+                        "open_ports": h_info.get("open_ports", []),
+                        "banners": h_info.get("banners", {}),
+                        "cves": h_info.get("cves", []),
+                        "is_open_access": h_info.get("is_open_access", False),
+                        "default_credentials_found": h_info.get("default_credentials_found", False),
+                        "is_online": bool(h_info.get("is_online")),
+                        "missed_pings": 0,
+                        "credential_findings": h_info.get("credential_findings", []),
+                        "vlan": resolve_vlan_for_ip(h_ip),
+                        "scoping_policy": h_info.get("scoping_policy") or {
+                            "risk_level": h_info.get("risk_level", "LOW"),
+                            "max_cvss": 9.8 if (h_info.get("risk_level") == "CRITICAL" or h_info.get("default_credentials_found") or h_info.get("is_open_access")) else 0.0,
+                            "quarantine_required": (h_info.get("risk_level") == "CRITICAL" or h_info.get("default_credentials_found") or h_info.get("is_open_access")),
+                            "recommended_vlan": "VLAN 99 (Quarantine)" if (h_info.get("risk_level") == "CRITICAL" or h_info.get("default_credentials_found") or h_info.get("is_open_access")) else "VLAN 10 (Production IoT)",
+                            "policy_violation": (h_info.get("risk_level") == "CRITICAL" or h_info.get("default_credentials_found") or h_info.get("is_open_access")),
+                            "policy_message": "VIOLATION: Default credentials or unauthenticated access detected." if (h_info.get("default_credentials_found") or h_info.get("is_open_access")) else "Compliant",
+                            "remediation": "Enforce strong authentication" if (h_info.get("default_credentials_found") or h_info.get("is_open_access")) else "None"
+                        },
+                        "policy_compliance": {"compliant": not (h_info.get("default_credentials_found") or h_info.get("is_open_access")), "violations": []},
+                        "risk_level": h_info.get("risk_level", "LOW"),
+                        "traffic": h_info.get("traffic", {}),
+                        "last_audited": datetime.now().isoformat(),
+                        "last_seen": datetime.now().isoformat()
+                    }
+                    if h_info.get("credential_findings"):
+                        for finding in h_info.get("credential_findings", []):
+                            f_type = "OPEN_ACCESS" if finding.get("is_open_access") else "DEFAULT_CREDENTIAL"
+                            GLOBAL_TRIAGE_MANAGER.record_finding(
+                                target_ip=h_ip,
+                                finding_type=f_type,
+                                title=f"Port {finding['port']}: {finding['credential']}",
+                                severity="CRITICAL",
+                                details=finding.get("description", "Default credential detected."),
+                                remediation="Enforce unique per-device passwords" if not finding.get("is_open_access") else "Enable mandatory authentication on streaming interface",
+                                device_type=h_info.get("device_type", "IP Camera"),
+                                port=finding.get("port")
+                            )
+
         arp_hosts = self.get_arp_hosts(edge_only=True)
         for ip, mac in arp_hosts.items():
             if not is_edge_ip(ip):
@@ -858,7 +1089,7 @@ class SecurityScannerEngine:
             with self._lock:
                 already_known = ip in self.inventory
 
-            if ip in host_ips or already_known or ip.endswith(".255"):
+            if ip in host_ips or already_known or ip.endswith(".255") or (ip.endswith(".1") and ip != "127.0.0.1"):
                 continue
 
             try:
@@ -951,7 +1182,10 @@ class SecurityScannerEngine:
     def get_summary_statistics(self) -> Dict[str, Any]:
         """Compute system-wide dashboard metrics including traffic, triage, and online states."""
         with self._lock:
-            devices = [d for d in self.inventory.values() if is_edge_ip(d.get("ip", ""))]
+            devices = [
+                d for d in self.inventory.values() 
+                if is_edge_ip(d.get("ip", "")) and not (d.get("ip", "").endswith(".1") and d.get("ip", "") != "127.0.0.1")
+            ]
             current_id = self.current_scan_id
             stage = self.current_stage
             total_scans = len(self.scan_history)
@@ -986,3 +1220,17 @@ class SecurityScannerEngine:
             "traffic": traffic,
             "triage": triage_stats
         }
+
+    def get_edge_devices(self) -> List[Dict[str, Any]]:
+        """Thread-safe retrieval of active edge devices in inventory."""
+        traffic_snap = GLOBAL_TRAFFIC_METER.get_snapshot().get("device_traffic", {})
+        with self._lock:
+            result = []
+            for d in self.inventory.values():
+                ip = d.get("ip", "")
+                if is_edge_ip(ip) and not (ip.endswith(".1") and ip != "127.0.0.1"):
+                    item = dict(d)
+                    if ip in traffic_snap:
+                        item["traffic"] = traffic_snap[ip]
+                    result.append(item)
+            return result

@@ -25,6 +25,8 @@ networks:
 services:
   # Node #1: Vulnerable IP Camera (D-Link DCS-932L - CRITICAL Default Credentials)
   mock-device-01:
+    profiles:
+      - mock
     build:
       context: ./mock-object
       dockerfile: templates/camera-mock/Dockerfile
@@ -43,6 +45,8 @@ services:
 
   # Node #2: Compliant Safety Smart TV (Sony BRAVIA - LOW Risk / Protected Baseline)
   mock-device-02:
+    profiles:
+      - mock
     build:
       context: ./mock-object
       dockerfile: templates/camera-mock/Dockerfile
@@ -61,6 +65,8 @@ services:
 
   # Node #3: Vulnerable Smart AC (Daikin Inverter AC - CRITICAL Open Access Controls)
   mock-device-03:
+    profiles:
+      - mock
     build:
       context: ./mock-object
       dockerfile: templates/camera-mock/Dockerfile
@@ -79,6 +85,8 @@ services:
 
   # Node #4: Compliant Safety Enterprise Camera (ProSafe IP Camera - LOW Risk / Protected Baseline)
   mock-device-04:
+    profiles:
+      - mock
     build:
       context: ./mock-object
       dockerfile: templates/camera-mock/Dockerfile
@@ -97,6 +105,8 @@ services:
 
   # Isolated Quarantine Test Node (VLAN 99)
   mock-device-quarantine:
+    profiles:
+      - mock
     build:
       context: ./mock-object
       dockerfile: templates/camera-mock/Dockerfile
@@ -144,8 +154,4 @@ services:
         ipv4_address: 172.28.99.90
     restart: unless-stopped
     depends_on:
-      - mock-device-01
-      - mock-device-02
-      - mock-device-03
-      - mock-device-04
       - net-core-mqtt

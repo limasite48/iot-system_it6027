@@ -147,11 +147,15 @@ class DatabaseManager:
                     VALUES (?, ?, 'tcp', ?, ?);
                     """, (ip, int(port), device_type, banner_str))
 
-                # Save correlated CVE findings
+                # Save correlated CVE findings (deduplicated per scan and host)
                 cves = device.get("cves", [])
+                if scan_id:
+                    conn.execute("DELETE FROM cve_findings WHERE ip = ? AND scan_id = ?;", (ip, scan_id))
+                else:
+                    conn.execute("DELETE FROM cve_findings WHERE ip = ? AND scan_id IS NULL;", (ip,))
                 for cve in cves:
                     conn.execute("""
-                    INSERT INTO cve_findings (scan_id, ip, cve_id, title, severity, cvss_score,
+                    INSERT OR REPLACE INTO cve_findings (scan_id, ip, cve_id, title, severity, cvss_score,
                                               cpe, vex_status, exploitability, ssvc_action, description, remediation)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                     """, (

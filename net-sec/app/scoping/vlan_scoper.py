@@ -96,10 +96,17 @@ def group_devices_by_vlan(devices: List[Dict[str, Any]]) -> Dict[str, Any]:
     vlan_groups = {}
     for d in devices:
         vlan_info = d.get("vlan", {})
-        vlan_name = vlan_info.get("name", "Unassigned")
+        if isinstance(vlan_info, str):
+            vlan_name = vlan_info
+            vlan_id = 100 if "100" in vlan_info else (99 if "99" in vlan_info else 10)
+            vlan_info = {"vlan_id": vlan_id, "name": vlan_name}
+        else:
+            vlan_name = vlan_info.get("name", "Unassigned")
+            vlan_id = vlan_info.get("vlan_id", 0)
+
         if vlan_name not in vlan_groups:
             vlan_groups[vlan_name] = {
-                "vlan_id": vlan_info.get("vlan_id", 0),
+                "vlan_id": vlan_id,
                 "vlan_name": vlan_name,
                 "device_count": 0,
                 "critical_count": 0,

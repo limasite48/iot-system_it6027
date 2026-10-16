@@ -556,22 +556,23 @@
 
         const devT = (window.deviceTraffic && window.deviceTraffic[d.ip]) || d.traffic;
         const isCameraType = d.device_type === "IP Camera" || d.open_ports?.includes(8080) || d.open_ports?.includes(554);
-        let devTraffic = '<span class="text-slate-500 text-xs">--</span>';
+        let devTraffic = '<span class="text-slate-500 text-xs font-mono">--</span>';
         if (isOnline) {
-          if (devT && (devT.rx_rate_kbps > 1.0 || devT.is_streaming)) {
+          const isActivelyStreaming = devT && ((devT.rx_rate_kbps >= 5.0) || devT.is_streaming);
+          if (isActivelyStreaming) {
+            const isVideo = isCameraType || devT.is_streaming;
             const rate = devT.rx_rate_mbps > 0.1 ? `${devT.rx_rate_mbps} MB/s` : `${devT.rx_rate_kbps} KB/s`;
             const total = `${devT.total_rx_mb || '0.0'} MB Rx`;
+            const iconClass = isVideo ? 'fa-video animate-pulse' : 'fa-bolt';
             devTraffic = `
-              <div class="text-xs font-mono text-cyan-300 font-bold flex items-center gap-1"><i class="fa-solid fa-video text-[10px]"></i> ${rate}</div>
+              <div class="text-xs font-mono text-cyan-300 font-bold flex items-center gap-1"><i class="fa-solid ${iconClass} text-[10px]"></i> ${rate}</div>
               <div class="text-[10px] text-slate-500">${total}</div>
             `;
-          } else if (isCameraType) {
+          } else {
             devTraffic = `
-              <div class="text-xs font-mono text-slate-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Idle</div>
+              <div class="text-xs font-mono text-slate-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Idle</div>
               <div class="text-[10px] text-slate-600">0.0 KB/s</div>
             `;
-          } else {
-            devTraffic = '<span class="text-slate-500 text-xs">Idle</span>';
           }
         }
 
@@ -908,6 +909,36 @@
         </div>
       `;
 
+      const devT = (window.deviceTraffic && window.deviceTraffic[device.ip]) || device.traffic;
+      if (devT) {
+        const isStreaming = devT.is_streaming || (devT.rx_rate_kbps >= 5.0);
+        const rateText = devT.rx_rate_mbps > 0.1 ? `${devT.rx_rate_mbps} MB/s` : `${devT.rx_rate_kbps || 0.0} KB/s`;
+        content += `
+          <div class="glass rounded-lg p-3 space-y-2">
+            <div class="font-bold text-slate-300 uppercase tracking-wider text-[10px] flex items-center justify-between">
+              <span>Real-Time Traffic Telemetry</span>
+              <span class="${isStreaming ? 'text-cyan-400 font-bold' : 'text-slate-500 font-semibold'} text-[11px] flex items-center gap-1">
+                ${isStreaming ? '<i class="fa-solid fa-video animate-pulse"></i> Live Streaming' : '<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Standby / Idle'}
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-1 font-mono text-center">
+              <div class="bg-slate-950/70 p-2 rounded border border-slate-800">
+                <div class="text-[9px] text-slate-400 uppercase">Rx Throughput</div>
+                <div class="text-xs font-bold ${isStreaming ? 'text-cyan-400' : 'text-slate-300'}">${rateText}</div>
+              </div>
+              <div class="bg-slate-950/70 p-2 rounded border border-slate-800">
+                <div class="text-[9px] text-slate-400 uppercase">Tx Throughput</div>
+                <div class="text-xs font-bold text-slate-300">${devT.tx_rate_kbps || 0.0} KB/s</div>
+              </div>
+              <div class="bg-slate-950/70 p-2 rounded border border-slate-800">
+                <div class="text-[9px] text-slate-400 uppercase">Total Transferred</div>
+                <div class="text-xs font-bold text-slate-300">${devT.total_rx_mb || '0.0'} MB</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       if (device.policy_compliance?.violations && device.policy_compliance.violations.length > 0) {
         content += `
           <div class="glass rounded-lg p-3 space-y-2 border border-orange-500/30 bg-orange-950/20">
@@ -1055,22 +1086,23 @@
         const isOnline = el.getAttribute('data-device-online') === 'true';
         const isCam = el.getAttribute('data-device-cam') === 'true';
 
-        let html = '<span class="text-slate-500 text-xs">--</span>';
+        let html = '<span class="text-slate-500 text-xs font-mono">--</span>';
         if (isOnline) {
-          if (devT && (devT.rx_rate_kbps > 1.0 || devT.is_streaming)) {
+          const isActivelyStreaming = devT && ((devT.rx_rate_kbps >= 5.0) || devT.is_streaming);
+          if (isActivelyStreaming) {
+            const isVideo = isCam || devT.is_streaming;
             const rate = devT.rx_rate_mbps > 0.1 ? `${devT.rx_rate_mbps} MB/s` : `${devT.rx_rate_kbps} KB/s`;
             const total = `${devT.total_rx_mb || '0.0'} MB Rx`;
+            const iconClass = isVideo ? 'fa-video animate-pulse' : 'fa-bolt';
             html = `
-              <div class="text-xs font-mono text-cyan-300 font-bold flex items-center gap-1"><i class="fa-solid fa-video text-[10px]"></i> ${rate}</div>
+              <div class="text-xs font-mono text-cyan-300 font-bold flex items-center gap-1"><i class="fa-solid ${iconClass} text-[10px]"></i> ${rate}</div>
               <div class="text-[10px] text-slate-500">${total}</div>
             `;
-          } else if (isCam) {
+          } else {
             html = `
-              <div class="text-xs font-mono text-slate-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Idle</div>
+              <div class="text-xs font-mono text-slate-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Idle</div>
               <div class="text-[10px] text-slate-600">0.0 KB/s</div>
             `;
-          } else {
-            html = '<span class="text-slate-500 text-xs">Idle</span>';
           }
         }
         el.innerHTML = html;

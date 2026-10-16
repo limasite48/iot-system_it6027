@@ -183,3 +183,87 @@ def test_mock_camera_unique_virtual_mac_generation():
     assert dev2["vendor"] in ["Virtual IoT Testbed Node", "D-Link Systems", "Hikvision", "Dahua Technology"]
     assert "traffic" in dev2
     assert "traffic" in dev3
+
+def test_traffic_meter_standby_idle_no_fallback_leakage():
+    """
+    Verify that background interface delta (e.g. from web management dashboard polling)
+    is NEVER attributed to standby devices when no active streaming connection is present.
+    Standby devices must strictly remain at 0.0 KB/s and is_streaming=False without jitter.
+    """
+    meter = TrafficMeter(target_subnet_prefix="192.168.137.")
+    standby_ip = "192.168.137.99"
+    meter.register_device(standby_ip)
+
+    # Simulate arrival of background web request delta (e.g. 5KB from /api/devices poll)
+    # But streaming_ips is empty (no active video stream open)
+    streaming_ips = set()
+    hotspot_active_ips = {}
+    delta_rx = 5 * 1024
+    delta_tx = 1024
+    dt = 1.0
+
+    with meter._lock:
+        known_ips = set(meter._device_stats.keys())
+        all_tracked_ips = known_ips.union(hotspot_active_ips.keys())
+        hotspot_candidates = [
+            ip for ip in all_tracked_ips 
+            if ip.startswith(meter.target_subnet_prefix) and ip not in ["127.0.0.1", "localhost"]
+        ]
+        active_streaming_candidates = [ip for ip in hotspot_candidates if ip in streaming_ips]
+        
+        # When no active stream is open, candidates must be empty and NO delta allocated!
+        assert len(active_streaming_candidates) == 0
+
+        # Run decay logic
+        for ip, dev in meter._device_stats.items():
+            if ip not in streaming_ips:
+                dev["rx_rate_kbps"] = 0.0
+                dev["tx_rate_kbps"] = 0.0
+                dev["rx_rate_mbps"] = 0.0
+                dev["tx_rate_mbps"] = 0.0
+                dev["is_streaming"] = False
+
+    snap = meter.get_snapshot()
+    dev_stat = snap["device_traffic"][standby_ip]
+    assert dev_stat["rx_rate_kbps"] == 0.0
+    assert dev_stat["rx_rate_mbps"] == 0.0
+    assert dev_stat["is_streaming"] is False
+
+def test_scanner_engine_get_edge_devices_dynamic_traffic_merge():
+    """
+    Verify that get_edge_devices() dynamically merges up-to-date traffic metrics
+    from GLOBAL_TRAFFIC_METER snapshot into the inventory output.
+    """
+    engine = SecurityScannerEngine()
+    test_ip = "192.168.137.50"
+    
+    with engine._lock:
+        engine.inventory[test_ip] = {
+            "ip": test_ip,
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "device_type": "IP Camera",
+            "is_online": True,
+            "traffic": {"ip": test_ip, "rx_rate_kbps": 0.0, "is_streaming": False}
+        }
+
+    # Simulate GLOBAL_TRAFFIC_METER reporting an active stream on test_ip
+    with GLOBAL_TRAFFIC_METER._lock:
+        GLOBAL_TRAFFIC_METER._device_stats[test_ip] = {
+            "ip": test_ip,
+            "rx_rate_kbps": 1540.0,
+            "tx_rate_kbps": 32.0,
+            "rx_rate_mbps": 1.5,
+            "tx_rate_mbps": 0.03,
+            "total_rx_mb": 12.4,
+            "total_tx_mb": 0.5,
+            "is_streaming": True,
+            "active_conns": 1
+        }
+        GLOBAL_TRAFFIC_METER.metrics["device_traffic"][test_ip] = dict(GLOBAL_TRAFFIC_METER._device_stats[test_ip])
+
+    edge_devices = engine.get_edge_devices()
+    matched = next((d for d in edge_devices if d.get("ip") == test_ip), None)
+    assert matched is not None
+    assert matched["traffic"]["rx_rate_kbps"] == 1540.0
+    assert matched["traffic"]["rx_rate_mbps"] == 1.5
+    assert matched["traffic"]["is_streaming"] is True

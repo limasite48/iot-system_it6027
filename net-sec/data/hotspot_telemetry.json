@@ -1,0 +1,37 @@
+{
+  "timestamp": 1792176063.0248854,
+  "hotspot_active": true,
+  "device_count": 1,
+  "devices": [
+    {
+      "ip": "192.168.137.97",
+      "mac": "82:F9:DA:8B:0A:90",
+      "hostname": "Xiaomi-12S-Pro 192.168.137.97",
+      "device_type": "Smartphone / Mobile Device",
+      "vendor": "Xiaomi (Mobile Device - Private MAC)",
+      "model": "Xiaomi 12S Pro",
+      "open_ports": [],
+      "banners": {},
+      "is_online": false,
+      "is_open_access": false,
+      "default_credentials_found": false,
+      "credential_findings": [],
+      "cves": [],
+      "risk_level": "LOW",
+      "last_seen": 1792176063.0248835,
+      "traffic": {
+        "ip": "192.168.137.97",
+        "rx_rate_kbps": 0.0,
+        "tx_rate_kbps": 0.0,
+        "rx_rate_mbps": 0.0,
+        "tx_rate_mbps": 0.0,
+        "total_rx_mb": 0.0,
+        "total_tx_mb": 0.0,
+        "total_rx_bytes": 0,
+        "total_tx_bytes": 0,
+        "is_streaming": false,
+        "active_conns": 0
+      }
+    }
+  ]
+}

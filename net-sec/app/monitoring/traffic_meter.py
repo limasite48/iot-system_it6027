@@ -6,6 +6,8 @@ and socket connection sampling. Eliminates cross-device traffic leakage between
 hotspot clients and virtual mock devices.
 """
 
+import os
+import json
 import time
 import threading
 import ipaddress
@@ -258,60 +260,87 @@ class TrafficMeter:
                     ]
                     
                     if hotspot_candidates and (delta_rx > 0 or delta_tx > 0):
-                        active_streaming_candidates = [ip for ip in hotspot_candidates if ip in streaming_ips or ip in hotspot_active_ips]
-                        recipients = active_streaming_candidates if active_streaming_candidates else hotspot_candidates
-                        share_rx = delta_rx / float(len(recipients))
-                        share_tx = delta_tx / float(len(recipients))
+                        active_streaming_candidates = [ip for ip in hotspot_candidates if ip in streaming_ips]
+                        if active_streaming_candidates:
+                            recipients = active_streaming_candidates
+                            share_rx = delta_rx / float(len(recipients))
+                            share_tx = delta_tx / float(len(recipients))
 
-                        for ip in recipients:
-                            dev = self._device_stats.setdefault(ip, {
-                                "ip": ip, "rx_bytes": 0, "tx_bytes": 0,
-                                "rx_rate_kbps": 0.0, "tx_rate_kbps": 0.0,
-                                "rx_rate_mbps": 0.0, "tx_rate_mbps": 0.0,
-                                "total_rx_mb": 0.0, "total_tx_mb": 0.0,
-                                "is_streaming": False, "active_conns": 0
-                            })
-                            dev["rx_bytes"] += int(share_rx)
-                            dev["tx_bytes"] += int(share_tx)
-                            dev_rx_rate_kb = (share_rx / 1024.0) / dt
-                            dev_tx_rate_kb = (share_tx / 1024.0) / dt
-                            dev["rx_rate_kbps"] = round(dev_rx_rate_kb, 1)
-                            dev["tx_rate_kbps"] = round(dev_tx_rate_kb, 1)
-                            dev["rx_rate_mbps"] = round(dev_rx_rate_kb / 1024.0, 2)
-                            dev["tx_rate_mbps"] = round(dev_tx_rate_kb / 1024.0, 2)
-                            dev["total_rx_mb"] = round(dev["rx_bytes"] / (1024.0 * 1024.0), 2)
-                            dev["total_tx_mb"] = round(dev["tx_bytes"] / (1024.0 * 1024.0), 2)
-                            dev["is_streaming"] = (dev_rx_rate_kb > 5.0) or (ip in streaming_ips)
-                            dev["active_conns"] = hotspot_active_ips.get(ip, 0)
+                            for ip in recipients:
+                                dev = self._device_stats.setdefault(ip, {
+                                    "ip": ip, "rx_bytes": 0, "tx_bytes": 0,
+                                    "rx_rate_kbps": 0.0, "tx_rate_kbps": 0.0,
+                                    "rx_rate_mbps": 0.0, "tx_rate_mbps": 0.0,
+                                    "total_rx_mb": 0.0, "total_tx_mb": 0.0,
+                                    "is_streaming": False, "active_conns": 0
+                                })
+                                dev["rx_bytes"] += int(share_rx)
+                                dev["tx_bytes"] += int(share_tx)
+                                dev_rx_rate_kb = (share_rx / 1024.0) / dt
+                                dev_tx_rate_kb = (share_tx / 1024.0) / dt
+                                
+                                prev_rx = dev.get("rx_rate_kbps", 0.0)
+                                smoothed_rx = round(0.6 * dev_rx_rate_kb + 0.4 * prev_rx, 1) if prev_rx > 0 else round(dev_rx_rate_kb, 1)
+
+                                dev["rx_rate_kbps"] = smoothed_rx
+                                dev["tx_rate_kbps"] = round(dev_tx_rate_kb, 1)
+                                dev["rx_rate_mbps"] = round(smoothed_rx / 1024.0, 2)
+                                dev["tx_rate_mbps"] = round(dev_tx_rate_kb / 1024.0, 2)
+                                dev["total_rx_mb"] = round(dev["rx_bytes"] / (1024.0 * 1024.0), 2)
+                                dev["total_tx_mb"] = round(dev["tx_bytes"] / (1024.0 * 1024.0), 2)
+                                dev["is_streaming"] = (smoothed_rx >= 5.0)
+                                dev["active_conns"] = hotspot_active_ips.get(ip, 0)
 
                     # Attribute Loopback Delta Rx/Tx (ONLY to 127.0.0.x with active connections)
                     if loopback_active_ips and (loopback_delta_rx > 0 or loopback_delta_tx > 0):
-                        lb_recipients = list(loopback_active_ips.keys())
-                        share_lb_rx = loopback_delta_rx / float(len(lb_recipients))
-                        share_lb_tx = loopback_delta_tx / float(len(lb_recipients))
-                        for ip in lb_recipients:
-                            dev = self._device_stats.setdefault(ip, {
-                                "ip": ip, "rx_bytes": 0, "tx_bytes": 0,
-                                "rx_rate_kbps": 0.0, "tx_rate_kbps": 0.0,
-                                "rx_rate_mbps": 0.0, "tx_rate_mbps": 0.0,
-                                "total_rx_mb": 0.0, "total_tx_mb": 0.0,
-                                "is_streaming": False, "active_conns": 0
-                            })
-                            dev["rx_bytes"] += int(share_lb_rx)
-                            dev["tx_bytes"] += int(share_lb_tx)
-                            dev_rx_rate_kb = (share_lb_rx / 1024.0) / dt
-                            dev_tx_rate_kb = (share_lb_tx / 1024.0) / dt
-                            dev["rx_rate_kbps"] = round(dev_rx_rate_kb, 1)
-                            dev["tx_rate_kbps"] = round(dev_tx_rate_kb, 1)
-                            dev["rx_rate_mbps"] = round(dev_rx_rate_kb / 1024.0, 2)
-                            dev["tx_rate_mbps"] = round(dev_tx_rate_kb / 1024.0, 2)
-                            dev["total_rx_mb"] = round(dev["rx_bytes"] / (1024.0 * 1024.0), 2)
-                            dev["total_tx_mb"] = round(dev["tx_bytes"] / (1024.0 * 1024.0), 2)
-                            dev["is_streaming"] = (dev_rx_rate_kb > 5.0) or (ip in streaming_ips)
-                            dev["active_conns"] = loopback_active_ips.get(ip, 0)
+                        lb_recipients = [ip for ip in loopback_active_ips.keys() if ip in streaming_ips or ip.startswith("127.0.0.")]
+                        if lb_recipients:
+                            share_lb_rx = loopback_delta_rx / float(len(lb_recipients))
+                            share_lb_tx = loopback_delta_tx / float(len(lb_recipients))
+                            for ip in lb_recipients:
+                                dev = self._device_stats.setdefault(ip, {
+                                    "ip": ip, "rx_bytes": 0, "tx_bytes": 0,
+                                    "rx_rate_kbps": 0.0, "tx_rate_kbps": 0.0,
+                                    "rx_rate_mbps": 0.0, "tx_rate_mbps": 0.0,
+                                    "total_rx_mb": 0.0, "total_tx_mb": 0.0,
+                                    "is_streaming": False, "active_conns": 0
+                                })
+                                dev["rx_bytes"] += int(share_lb_rx)
+                                dev["tx_bytes"] += int(share_lb_tx)
+                                dev_rx_rate_kb = (share_lb_rx / 1024.0) / dt
+                                dev_tx_rate_kb = (share_lb_tx / 1024.0) / dt
+                                dev["rx_rate_kbps"] = round(dev_rx_rate_kb, 1)
+                                dev["tx_rate_kbps"] = round(dev_tx_rate_kb, 1)
+                                dev["rx_rate_mbps"] = round(dev_rx_rate_kb / 1024.0, 2)
+                                dev["tx_rate_mbps"] = round(dev_tx_rate_kb / 1024.0, 2)
+                                dev["total_rx_mb"] = round(dev["rx_bytes"] / (1024.0 * 1024.0), 2)
+                                dev["total_tx_mb"] = round(dev["tx_bytes"] / (1024.0 * 1024.0), 2)
+                                dev["is_streaming"] = (dev_rx_rate_kb >= 5.0) or (ip in streaming_ips)
+                                dev["active_conns"] = loopback_active_ips.get(ip, 0)
 
-                    # For devices with no delta this second, decay rate to 0.0 KB/s
+                    # Ingest physical hotspot telemetry if available
+                    telemetry_file = "/app/data/hotspot_telemetry.json"
+                    if not os.path.exists(telemetry_file):
+                        d_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data")
+                        telemetry_file = os.path.join(d_dir, "hotspot_telemetry.json")
+                    telemetry_hotspot_ips = set()
+                    if os.path.exists(telemetry_file):
+                        try:
+                            with open(telemetry_file, "r", encoding="utf-8") as f:
+                                h_data = json.load(f)
+                            for d in h_data.get("devices", []):
+                                h_ip = d.get("ip")
+                                h_t = d.get("traffic")
+                                if h_ip and h_t:
+                                    telemetry_hotspot_ips.add(h_ip)
+                                    self._device_stats[h_ip] = dict(h_t)
+                        except Exception:
+                            pass
+
+                    # For devices with no active streaming, decay rate strictly to 0.0 KB/s
                     for ip, dev in self._device_stats.items():
+                        if ip in telemetry_hotspot_ips:
+                            continue  # Authoritatively updated by physical bridge
                         if ip.startswith("127."):
                             if ip not in loopback_active_ips or loopback_delta_rx == 0:
                                 dev["rx_rate_kbps"] = 0.0
@@ -321,7 +350,7 @@ class TrafficMeter:
                                 dev["is_streaming"] = False
                                 dev["active_conns"] = loopback_active_ips.get(ip, 0)
                         else:
-                            if ip not in hotspot_active_ips and delta_rx == 0:
+                            if ip not in streaming_ips:
                                 dev["rx_rate_kbps"] = 0.0
                                 dev["tx_rate_kbps"] = 0.0
                                 dev["rx_rate_mbps"] = 0.0

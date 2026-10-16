@@ -94,4 +94,4 @@ $RECYCLE.BIN/
 *.sublime-workspace
 
 # Knowledge graph & analysis tool caches
-graphify-out/cache/
+graphify-out/

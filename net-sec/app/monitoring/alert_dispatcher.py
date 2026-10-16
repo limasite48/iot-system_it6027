@@ -6,6 +6,7 @@ Non-blocking, rate-limited, and failure-tolerant.
 """
 
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import httpx
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -18,6 +19,7 @@ class WebhookAlertDispatcher:
         self.dispatch_count = 0
         self.last_dispatch_time: Optional[str] = None
         self.last_status: str = "IDLE"
+        self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="webhook-dispatch")
 
     def configure(self, webhook_url: str, enabled: bool = True):
         with self._lock:
@@ -36,7 +38,7 @@ class WebhookAlertDispatcher:
             }
 
     def dispatch_alert_async(self, alert: Dict[str, Any]):
-        """Non-blocking background dispatch."""
+        """Non-blocking background dispatch using bounded thread pool."""
         if not self.enabled or not self.webhook_url:
             return
 
@@ -45,8 +47,10 @@ class WebhookAlertDispatcher:
         if severity not in ["CRITICAL", "HIGH"]:
             return
 
-        thread = threading.Thread(target=self._send_payload, args=(alert,), daemon=True)
-        thread.start()
+        try:
+            self._pool.submit(self._send_payload, alert)
+        except Exception:
+            pass
 
     def _send_payload(self, alert: Dict[str, Any]):
         payload = {

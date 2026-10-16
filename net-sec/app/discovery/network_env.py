@@ -6,6 +6,7 @@ Eliminates hardcoded IP/subnet assumptions across the platform.
 """
 
 import os
+import re
 import json
 import socket
 import platform
@@ -126,6 +127,8 @@ def get_hotspot_active_clients(force_refresh: bool = False) -> List[Dict[str, st
     """
     Query Windows Mobile Hotspot Tethering API via PowerShell with 2.0s TTL caching.
     Prevents spawning redundant PowerShell processes when auditing multiple hosts.
+    Also syncs to and reads from shared data/hotspot_clients.json so Docker containers
+    can accurately track real physical devices connected to the host hotspot.
     """
     global _HOTSPOT_CLIENTS_CACHE, _HOTSPOT_CACHE_TIME
     import time
@@ -134,7 +137,32 @@ def get_hotspot_active_clients(force_refresh: bool = False) -> List[Dict[str, st
         if not force_refresh and (now - _HOTSPOT_CACHE_TIME < 2.0):
             return list(_HOTSPOT_CLIENTS_CACHE)
 
+    data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
+    hotspot_sync_file = os.path.join(data_dir, "hotspot_clients.json")
+    if not os.path.exists(hotspot_sync_file):
+        alt_file = "/app/data/hotspot_clients.json"
+        if os.path.exists(alt_file):
+            hotspot_sync_file = alt_file
+
     if platform.system() != "Windows" or not os.path.exists(HOTSPOT_PS_SCRIPT):
+        # Linux / Docker container environment: Read synced hotspot state from shared volume
+        if os.path.exists(hotspot_sync_file):
+            try:
+                with open(hotspot_sync_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    clients = []
+                    for c in data.get("Clients", []):
+                        mac = c.get("MacAddress", "").replace("-", ":").upper()
+                        hostname = c.get("Hostname", "")
+                        ip_match = re.search(r"\b(192\.168\.(?:137|173)\.\d{1,3})\b", hostname)
+                        client_ip = ip_match.group(1) if ip_match else ""
+                        clients.append({"mac": mac, "hostname": hostname, "ip": client_ip})
+                    with _HOTSPOT_LOCK:
+                        _HOTSPOT_CLIENTS_CACHE = clients
+                        _HOTSPOT_CACHE_TIME = time.time()
+                    return clients
+            except Exception:
+                pass
         return []
 
     try:
@@ -146,7 +174,16 @@ def get_hotspot_active_clients(force_refresh: bool = False) -> List[Dict[str, st
             for c in data.get("Clients", []):
                 mac = c.get("MacAddress", "").replace("-", ":").upper()
                 hostname = c.get("Hostname", "")
-                clients.append({"mac": mac, "hostname": hostname})
+                ip_match = re.search(r"\b(192\.168\.(?:137|173)\.\d{1,3})\b", hostname)
+                client_ip = ip_match.group(1) if ip_match else ""
+                clients.append({"mac": mac, "hostname": hostname, "ip": client_ip})
+            # Persist to data/hotspot_clients.json for Docker container synchronization
+            try:
+                os.makedirs(data_dir, exist_ok=True)
+                with open(hotspot_sync_file, "w", encoding="utf-8") as sf:
+                    json.dump(data, sf)
+            except Exception:
+                pass
             with _HOTSPOT_LOCK:
                 _HOTSPOT_CLIENTS_CACHE = clients
                 _HOTSPOT_CACHE_TIME = time.time()

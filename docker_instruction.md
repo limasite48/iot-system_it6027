@@ -92,7 +92,14 @@ http://localhost:8000
 - Real-time audit metrics, discovered devices, open ports, vulnerability CVE scores, and policy compliance violations will populate dynamically.
 - OpenAPI specification and interactive Swagger UI: `http://localhost:8000/docs`
 
-### 2. Relational Database Health & Statistics
+### 3. Official NIST CVE/CVSS Database & Verification
+The platform includes the official NIST NVD 2.0 verified vulnerability database and live sync client:
+- Query loaded CVEs: `http://localhost:8000/api/cve/database`
+- Download official submission dataset: `http://localhost:8000/api/cve/database/official`
+- Trigger on-demand NIST NVD live sync: `http://localhost:8000/api/cve/sync-nvd`
+- Offline catalog: View [CVE_DATABASE_CATALOG.md](CVE_DATABASE_CATALOG.md) or [official_cve_cvss_database.json](official_cve_cvss_database.json)
+
+### 4. Relational Database Health & Statistics
 Query the database persistence endpoint:
 ```bash
 curl http://localhost:8000/api/db/stats
@@ -112,7 +119,7 @@ Expected output showing persisted tables and records:
 ```
 The database is volume-mounted to `./net-sec/data/iot_security.db` on your host machine, ensuring audit records survive container teardown and restarts.
 
-### 3. Triggering Active Security Audits
+### 5. Triggering Active Security Audits
 Trigger an on-demand active scan of all network subnets via the REST API:
 ```bash
 curl -X POST http://localhost:8000/api/scan -H "Content-Type: application/json" -d "{}"
@@ -122,7 +129,7 @@ Verify scan status:
 curl http://localhost:8000/api/status
 ```
 
-### 4. Running the Benchmark & Performance Harness
+### 6. Running the Benchmark & Performance Harness
 To reproduce the performance metrics (latency, device throughput, memory footprint):
 ```bash
 cd net-sec

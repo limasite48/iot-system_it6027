@@ -248,6 +248,31 @@ async def get_cve_database():
         "cves": GLOBAL_CVE_MANAGER.get_all_cves()
     }
 
+@app.get("/api/cve/database/official", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
+async def get_official_cve_database():
+    """Download official NIST NVD 2.0 verified vulnerability & CVSS scoring dataset."""
+    db_paths = [
+        os.path.join(os.path.dirname(__file__), "..", "..", "data", "official_cve_cvss_database.json"),
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "official_cve_cvss_database.json")
+    ]
+    for p in db_paths:
+        if os.path.exists(p):
+            with open(p, "r", encoding="utf-8") as f:
+                return json.load(f)
+    raise HTTPException(status_code=404, detail="Official NIST CVE database artifact not found.")
+
+@app.post("/api/cve/sync-nvd", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
+async def sync_live_nvd(cpe_name: str = Query("cpe:2.3:o:dlink:dcs-932l_firmware:*:*:*:*:*:*:*:*")):
+    """Live on-demand synchronization directly from NIST NVD REST API 2.0."""
+    results = await GLOBAL_CVE_MANAGER.fetch_nvd_for_cpe_async(cpe_name)
+    return {
+        "status": "success",
+        "source": "NIST National Vulnerability Database (NVD) API v2.0",
+        "cpe_query": cpe_name,
+        "fetched_cves_count": len(results),
+        "vulnerabilities": results
+    }
+
 @app.post("/api/cve/sync", tags=["Subsystem 2: Vulnerability Assessment & Compliance"])
 async def sync_cve_database(req: Optional[CveSyncRequest] = None):
     """Hot-reload multi-feed vulnerability database and optionally register custom scale-up CVEs."""

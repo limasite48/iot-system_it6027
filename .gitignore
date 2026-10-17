@@ -43,9 +43,14 @@ parts/
 sdist/
 var/
 wheels/
-*.egg-info/
-.installed.cfg
 *.egg
+
+# Large archive & container exports
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.ova
 
 # Environment variables & secrets
 .env
@@ -70,6 +75,7 @@ mosquitto.db
 *.bak
 *.swp
 *.swo
+*.pid
 *~
 
 # Operating System Files
